@@ -6,9 +6,13 @@
   "description": "Scan, catalog, and preview your own drum-groove MIDI libraries.",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "node test/scan-check.js"
   },
   "devDependencies": {
     "electron": "^43.1.0"
+  },
+  "dependencies": {
+    "midi-file": "^1.2.4"
   }
 }

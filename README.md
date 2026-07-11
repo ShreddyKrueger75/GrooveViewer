@@ -15,11 +15,29 @@ npm install
 npm start
 ```
 
-## Dev data (local only, gitignored)
+On first launch, point GrooveViewer at your groove library folder (e.g. your
+SSD5 `Grooves` directory, an EZdrummer MIDI folder, or any folder of `.mid`
+files). It scans the folder — tempo, time signature, and length come straight
+from each MIDI file's headers — and caches the catalog in the OS app-data dir.
+Use the **library…** button to switch folders or rescan. Feel/kick
+classification arrives with the classifier milestone.
 
-The app currently reads `dev-data/catalog.json.gz` — the 396k-record catalog
-extracted from the personal-use prototype (`beat-catalog.html`, also
-gitignored). To regenerate it:
+## Test
+
+```
+npm test
+```
+
+Runs the scanner self-check: a synthetic in-memory MIDI fixture, plus (when
+the dev ground-truth data and library volume are present) a 397-file sample
+compared against the prototype catalog — currently 396/397 exact.
+
+## Dev ground truth (local only, gitignored)
+
+`dev-data/catalog.json.gz` is the 396k-record catalog extracted from the
+personal-use prototype (`beat-catalog.html`, also gitignored). The app never
+reads it — it's the validation corpus for the scanner/classifier. To
+regenerate it:
 
 ```
 python3 -c "
@@ -32,12 +50,11 @@ open('dev-data/catalog.json.gz','wb').write(base64.b64decode(blob))
 "
 ```
 
-The library scanner (a future milestone) replaces this dev catalog with a
-scan of the user's own installed libraries.
-
 ## Roadmap (see `.claude/STATUS.md` for live state)
 
 1. ✅ Electron shell + catalog browser (port of the prototype UI)
-2. Library scanner + feel classifier (rebuild the lost core intelligence)
-3. Real MIDI playback for previews (the current preview is a synth caricature)
-4. Drag-to-DAW (the killer feature)
+2. ✅ Library picker + scanner (header facts: BPM, time signature, bars)
+3. Feel classifier (rebuild the lost core intelligence: feel, kick pattern,
+   cymbal, hit density)
+4. Real MIDI playback for previews (the prototype preview was a synth caricature)
+5. Drag-to-DAW (the killer feature)

@@ -20,18 +20,33 @@
   replacing the lost Python helper). Smoke-tested: loads all 396,510 records, renders,
   screenshot verified. Electron 43.1.0, `npm audit` clean.
 
+## Milestone 1.5 (John's change request, same session): library picker + scanner
+- App no longer reads John's dev catalog — first run shows "Choose your groove library…";
+  picking a folder scans it (walk for `.mid`/`.midi` → parse headers via `midi-file` npm)
+  and caches catalog + chosen path in the OS userData dir. "library…" button re-picks.
+- `scanner.js` extracted (no Electron deps) — the classifier will live there too.
+- Scanner analyze() validated against the prototype catalog as ground truth: **396/397
+  exact** on bpm/ts/bars (rule: first setTempo + first timeSignature win; bars = ceil to
+  last note ATTACK). BPM null when the file embeds no tempo — matches truth (264k/396k).
+- `npm test` = `test/scan-check.js`: synthetic in-memory MIDI fixture (always) +
+  ground-truth sample comparison (when dev-data + volume present). Both pass.
+- E2E smoke via capturePage: first-run picker state + real scan of the Groove Monkee
+  freebie pack (210 files) → catalog renders with real parsed data.
+
 ## Known ceilings (deliberate, ponytail-marked)
-- Preview is the prototype's synth caricature (kick from metadata, snare inferred from
-  feel) — real MIDI playback is milestone 3
+- Feel/kick/cymbal columns show "—" and preview ▶ is hidden until the classifier
+  (milestone 2 → now the NEXT milestone) fills them
+- Scan re-analyzes everything on rescan — incremental scan when libraries get huge
+- Pack/section derived from folder segments relative to the chosen root — picking a
+  single `.lib` pack makes its subfolders the "packs" (pick the parent Grooves folder
+  for correct pack names)
 - 1,000-row render cap kept from prototype — virtualize when it hurts
-- Catalog paths are the prototype's hardcoded `/Volumes/My Work/SSL/...` absolute paths —
-  reveal/copy only work with that volume mounted; fixed for real when the scanner lands
 
 ## Next move
 1. John reviews the diff on `claude/electron-shell` (three-gate merge: diff read ✅ by
-   Claude, QA = John runs `npm start`, John merges)
-2. Then milestone 2: the library scanner + feel classifier (Node), validated against the
-   396k-record prototype catalog as ground truth
+   Claude, QA = John runs `npm start` and picks his Grooves folder, John merges)
+2. Then: the feel classifier in `scanner.js` (feel/kick/cymbal/hits/toms), validated
+   against the 396k-record prototype catalog as ground truth
 
 ## Vault sync
 ✅ 2026-07-11: session-log line, Daily entry, and session note

@@ -7,7 +7,8 @@ function debounce(fn,ms){return()=>{clearTimeout(timer);timer=setTimeout(fn,ms);
 function uniq(k){return[...new Set(DATA.map(r=>r[k]).filter(Boolean))].sort()}
 function buildSelects(){
   [['sF','feel'],['sC','cat'],['sT','time'],['sP','pack']].forEach(([id,k])=>{
-    const el=$(id); uniq(k).forEach(v=>{const o=new Option(v,v);el.appendChild(o);});
+    const el=$(id); el.length=1; // keep the "all" option; rebuild on rescan
+    uniq(k).forEach(v=>{const o=new Option(v,v);el.appendChild(o);});
   });
 }
 function filt(){
@@ -27,7 +28,7 @@ function render(){
   $('cnt').textContent=r.length.toLocaleString()+' / '+DATA.length.toLocaleString()+' grooves';
   const over=r.length>MAX;$('cap').textContent=over?`Showing first ${MAX} — narrow filters to see the rest.`:'';
   const rows=(over?r.slice(0,MAX):r).map(x=>`<tr>
-<td><span class="tag ${fc(x.feel)}">${esc(x.feel)}</span></td>
+<td>${x.feel==null?'—':`<span class="tag ${fc(x.feel)}">${esc(x.feel)}</span>`}</td>
 <td>${esc(x.cat)}</td><td>${x.bpm??'—'}</td><td>${esc(x.ts)}</td><td>${x.bars}</td>
 <td>${esc(x.time)}</td><td title="${esc(x.kick)}">${esc(x.kick)}</td>
 <td title="${esc(x.pack)}">${esc(x.pack.slice(0,30))}</td>
@@ -44,12 +45,27 @@ document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{
 });
 ['q','sF','sC','sT','sP'].forEach(id=>$(id).addEventListener('input',debounce(render,150)));
 ['bN','bX'].forEach(id=>$(id).addEventListener('input',debounce(render,300)));
+window.groove.onScanProgress(m=>{$('lp').textContent=m;});
+function show(json){
+  DATA=JSON.parse(json);
+  buildSelects();render();
+  $('loader').style.display='none';$('app').style.display='block';
+}
+async function pickLibrary(){
+  $('pick').hidden=true;$('lp').textContent='Choose a folder…';
+  const r=await window.groove.chooseLibrary();
+  if(r.json)return show(r.json);
+  if(r.canceled&&DATA.length){$('loader').style.display='none';$('app').style.display='block';return;}
+  $('lp').textContent=r.error||'Point GrooveViewer at your groove library to get started.';
+  $('pick').hidden=false;
+}
 async function load(){
+  $('pick').onclick=pickLibrary;
   try{
-    $('lp').textContent='Loading catalog...';
-    DATA=JSON.parse(await window.groove.loadCatalog());
-    buildSelects();render();
-    $('loader').style.display='none';$('app').style.display='block';
+    const r=await window.groove.loadCatalog();
+    if(r.json)return show(r.json);
+    $('lp').textContent='Point GrooveViewer at your groove library to get started.';
+    $('pick').hidden=false;
   }catch(e){$('lp').textContent='Error: '+e.message;}
 }
 load();
@@ -135,16 +151,19 @@ load();
       const cp=tr.querySelector('.cp');if(!cp)return;
       const row=DATA.find(r=>r.path===cp.dataset.p);
       if(!row)return;
-      const btn=document.createElement('button');
-      btn.className='cp pv';btn.textContent='▶';btn.title='preview groove';
-      btn.style.marginLeft='4px';
-      btn.onclick=e=>{e.stopPropagation();playing===row?stopLoop():startLoop(row,btn);};
-      cp.after(btn);
+      let last=cp;
+      if(row.feel!=null){ // no preview until the classifier (milestone 2) fills feel/kick
+        const btn=document.createElement('button');
+        btn.className='cp pv';btn.textContent='▶';btn.title='preview groove';
+        btn.style.marginLeft='4px';
+        btn.onclick=e=>{e.stopPropagation();playing===row?stopLoop():startLoop(row,btn);};
+        cp.after(btn);last=btn;
+      }
       const rb=document.createElement('button');
-      rb.className='cp';rb.textContent='📂';rb.title='reveal in Finder';
+      rb.className='cp pv';rb.textContent='📂';rb.title='reveal in Finder';
       rb.style.marginLeft='4px';
       rb.onclick=e=>{e.stopPropagation();window.groove.reveal(row.path);};
-      btn.after(rb);
+      last.after(rb);
     });
   }
   new MutationObserver(attachPlayers).observe(document.getElementById('tbl'),{childList:true});
@@ -178,6 +197,18 @@ load();
       if(playing){const r=playing,b=playBtn;stopLoop();startLoop(r,b);}
     };
   }
+  function addLibraryBtn(){
+    const bar=document.querySelector('.bar');
+    const b=document.createElement('button');
+    b.className='col-btn';b.textContent='library…';b.title='choose a different library folder and rescan';
+    bar.appendChild(b);
+    b.onclick=()=>{
+      stopLoop();
+      $('app').style.display='none';$('loader').style.display='flex';
+      pickLibrary();
+    };
+  }
   addSlider();
   addColumns();
+  addLibraryBtn();
 })();
