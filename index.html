@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>GrooveViewer</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<div id="loader"><h2>LOADING GROOVE CATALOG</h2><p id="lp">Loading...</p></div>
+<div id="app">
+<header>
+  <h1>GROOVE<span>VIEWER</span></h1>
+  <div class="sub">Search &amp; filter your groove library. Click column headers to sort. BPM is the file's native feel — MIDI conforms to your DAW project tempo.</div>
+  <div class="bar">
+    <input type="text" id="q" placeholder="search file, pack, section, kick, feel...">
+    <select id="sF"><option value="">feel: all</option></select>
+    <select id="sC"><option value="">type: all</option></select>
+    <select id="sT"><option value="">cymbal: all</option></select>
+    <select id="sP"><option value="">pack: all</option></select>
+    <input type="number" id="bN" placeholder="bpm≥" title="Min BPM">
+    <input type="number" id="bX" placeholder="bpm≤" title="Max BPM">
+    <span class="count" id="cnt"></span>
+  </div>
+</header>
+<table><thead><tr>
+  <th data-k="feel">Feel</th><th data-k="cat">Type</th><th data-k="bpm">BPM</th>
+  <th data-k="ts">Sig</th><th data-k="bars">Bars</th><th data-k="time">Cymbal</th>
+  <th data-k="kick">Kick</th><th data-k="pack">Pack</th><th data-k="section">Section</th>
+  <th data-k="file">File</th><th style="min-width:80px"></th>
+</tr></thead><tbody id="tbl"></tbody></table>
+<div class="note" id="cap"></div>
+</div>
+<script src="app.js"></script>
+</body></html>

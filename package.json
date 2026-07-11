@@ -1,0 +1,14 @@
+{
+  "name": "grooveviewer",
+  "productName": "GrooveViewer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scan, catalog, and preview your own drum-groove MIDI libraries.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^43.1.0"
+  }
+}
