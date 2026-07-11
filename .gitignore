@@ -2,3 +2,8 @@
 build/
 DerivedData/
 *.log
+
+# Prototype with embedded copyrighted groove data (Slate/Groove Monkee) — NEVER commit
+beat-catalog.html
+node_modules/
+dev-data/

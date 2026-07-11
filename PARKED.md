@@ -30,3 +30,10 @@ the data. This is both the legal requirement and the bigger product.
 - The lost piece to rebuild first: the MIDI scanner + feel classifier
   (the original intelligence; was a Python script, now gone)
 - Killer feature to prioritize: drag-to-DAW
+
+---
+
+## RESUMED 2026-07-11
+John un-parked the project ("getting serious"). Bootstrapped per protocol:
+`CLAUDE.md`, `docs/claude/`, `.claude/rules/00-session-protocol.md`, `.claude/STATUS.md`.
+Current state lives in `.claude/STATUS.md` — this file is now historical.
