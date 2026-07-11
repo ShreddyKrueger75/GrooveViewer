@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
-const { scan } = require('./scanner');
+const { scan, readNotes } = require('./scanner');
 
 // Scan, don't ship: the catalog is built by scanning the user's own library
 // folder and cached (with the chosen path) in the OS per-user app-data dir.
@@ -57,6 +57,10 @@ ipcMain.handle('library:rescan', () => {
   const { libraryPath } = readSettings();
   if (!libraryPath) return { error: 'No library chosen yet' };
   return scanAndCache(libraryPath);
+});
+
+ipcMain.handle('midi:notes', (_e, p) => {
+  try { return readNotes(p); } catch (e) { return { error: e.message }; }
 });
 
 ipcMain.on('reveal', (_e, p) => shell.showItemInFolder(p));

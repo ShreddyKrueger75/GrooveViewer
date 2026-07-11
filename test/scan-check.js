@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
 const { writeMidi } = require('midi-file');
-const { analyze, scan } = require('../scanner');
+const { analyze, scan, readNotes } = require('../scanner');
 
 // --- tier 1: synthetic fixture ---------------------------------------------
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gv-test-'));
@@ -29,6 +29,12 @@ fs.writeFileSync(fixture, Buffer.from(mid));
 
 const a = analyze(fixture);
 assert.deepStrictEqual(a, { bpm: 120, ts: '3/4', bars: 2 }, `analyze fixture: ${JSON.stringify(a)}`);
+
+const n = readNotes(fixture);
+assert.strictEqual(n.tpb, 480);
+assert.strictEqual(n.barTicks, 480 * 3); // 3/4
+assert.strictEqual(n.bars, 2);
+assert.deepStrictEqual(n.notes, [[0, 36, 100], [480 * 3 * 2 - 240, 38, 100]], `readNotes: ${JSON.stringify(n.notes)}`);
 
 // scan() derives pack/section/file from the folder structure
 fs.mkdirSync(path.join(tmp, 'My Pack.lib', 'Verses.sng'), { recursive: true });

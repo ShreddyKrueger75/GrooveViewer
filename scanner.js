@@ -26,6 +26,32 @@ function analyze(file) {
   return { bpm, ts: `${num}/${den}`, bars };
 }
 
+// Full note extraction for preview playback: absolute-tick note attacks plus
+// the same header facts analyze() reports.
+function readNotes(file) {
+  const parsed = parseMidi(fs.readFileSync(file));
+  let bpm = null, num = null, den = null, lastOn = 0;
+  const notes = [];
+  for (const track of parsed.tracks) {
+    let t = 0;
+    for (const ev of track) {
+      t += ev.deltaTime;
+      if (ev.type === 'setTempo' && bpm == null) bpm = Math.round(60e6 / ev.microsecondsPerBeat);
+      if (ev.type === 'timeSignature' && num == null) { num = ev.numerator; den = ev.denominator; }
+      if (ev.type === 'noteOn' && ev.velocity > 0) {
+        notes.push([t, ev.noteNumber, ev.velocity]);
+        if (t > lastOn) lastOn = t;
+      }
+    }
+  }
+  num = num ?? 4; den = den ?? 4;
+  const tpb = parsed.header.ticksPerBeat || 480;
+  const barTicks = tpb * num * (4 / den);
+  const bars = Math.max(1, Math.ceil((lastOn + 1) / barTicks));
+  notes.sort((a, b) => a[0] - b[0]);
+  return { tpb, bpm, barTicks, bars, notes };
+}
+
 async function findMidis(root, onProgress) {
   const files = [], stack = [root];
   let dirs = 0;
@@ -66,4 +92,4 @@ async function scan(root, onProgress = async () => {}) {
   return out;
 }
 
-module.exports = { analyze, scan };
+module.exports = { analyze, scan, readNotes };

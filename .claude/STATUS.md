@@ -33,9 +33,27 @@
 - E2E smoke via capturePage: first-run picker state + real scan of the Groove Monkee
   freebie pack (210 files) → catalog renders with real parsed data.
 
+## Milestone: real sample-based preview (same session)
+- **Samples: DRSKit 2 (DrumGizmo), CC-BY 4.0** — 21 curated unmodified one-shots
+  (kick/snare/closed+open hat/3 toms/crash/ride, 2–3 velocity layers), 3.5 MB, committed
+  at `assets/drskit/` with `ATTRIBUTION.md`. License research in vault:
+  `Projects/Groove Library/Drum samples for preview — license research`.
+  Rejected: Salamander (CC-BY-SA share-alike), "royalty-free" packs (no redistribution).
+- **Preview now plays the real MIDI**: `scanner.readNotes()` → IPC → WebAudio sampler
+  (GM-ish note buckets → 9 voices, velocity → layer + gain, per-file peak normalize +
+  per-instrument TRIM knobs, hi-hat choke, master-gain kill switch on stop). Synth
+  caricature deleted. ▶ restored on all rows — no classifier dependency.
+- Velocity ordering of DRSKit sample indices verified by measured peak/RMS.
+  `npm test` extended with readNotes fixture assertions. E2E: scan → ▶ shows ■,
+  loops, stop restores ▶, zero console errors.
+- ⚠️ Mix quality is untuned-by-ear (TRIM constants in app.js) — John should judge and
+  we tweak numbers.
+
 ## Known ceilings (deliberate, ponytail-marked)
-- Feel/kick/cymbal columns show "—" and preview ▶ is hidden until the classifier
-  (milestone 2 → now the NEXT milestone) fills them
+- Feel/kick/cymbal columns still show "—" until the classifier milestone fills them
+- Preview one-shots are mono close-mics (no room/overhead blend) — revisit if it
+  sounds too dry
+- Non-kit percussion notes (cowbell, claps, etc.) are skipped in preview
 - Scan re-analyzes everything on rescan — incremental scan when libraries get huge
 - Pack/section derived from folder segments relative to the chosen root — picking a
   single `.lib` pack makes its subfolders the "packs" (pick the parent Grooves folder

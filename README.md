@@ -50,11 +50,21 @@ open('dev-data/catalog.json.gz','wb').write(base64.b64decode(blob))
 "
 ```
 
+## Preview sounds
+
+Groove preview plays the **actual MIDI notes** from each file through a
+curated set of 21 acoustic drum one-shots from **DRSKit 2** by the
+[DrumGizmo project](https://drumgizmo.org/kits/), used under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — see
+[assets/drskit/ATTRIBUTION.md](assets/drskit/ATTRIBUTION.md). The preview
+BPM slider sets the playback tempo regardless of each file's native tempo.
+
 ## Roadmap (see `.claude/STATUS.md` for live state)
 
 1. ✅ Electron shell + catalog browser (port of the prototype UI)
 2. ✅ Library picker + scanner (header facts: BPM, time signature, bars)
-3. Feel classifier (rebuild the lost core intelligence: feel, kick pattern,
+3. ✅ Real MIDI playback for previews (DRSKit samples; replaced the
+   prototype's synth caricature)
+4. Feel classifier (rebuild the lost core intelligence: feel, kick pattern,
    cymbal, hit density)
-4. Real MIDI playback for previews (the prototype preview was a synth caricature)
 5. Drag-to-DAW (the killer feature)

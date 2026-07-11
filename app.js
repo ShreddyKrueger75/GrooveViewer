@@ -69,80 +69,83 @@ async function load(){
   }catch(e){$('lp').textContent='Error: '+e.message;}
 }
 load();
-// === DRUM PREVIEW ===
-// ponytail: synth caricature from the prototype — kick from metadata, snare
-// inferred from feel class, straight-8ths hats. Real MIDI playback replaces
-// this in a later milestone.
+// === DRUM PREVIEW (DRSKit samples, real MIDI playback) ===
+// Plays the actual note events from the groove's MIDI file through curated
+// DRSKit one-shots (CC-BY 4.0 — see assets/drskit/ATTRIBUTION.md).
 (function(){
-  let actx=null,playing=null,playBtn=null,loopTimer=null,previewBpm=182;
+  let actx=null,master=null,playing=null,playBtn=null,loopTimer=null,previewBpm=182,openHatSrc=null;
   const get=id=>document.getElementById(id);
   function ctx(){if(!actx)actx=new AudioContext();if(actx.state==='suspended')actx.resume();return actx;}
-  function kick(c,t){
-    const o=c.createOscillator(),g=c.createGain();
-    o.connect(g);g.connect(c.destination);
-    o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(55,t+0.2);
-    g.gain.setValueAtTime(1.5,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.35);
-    o.start(t);o.stop(t+0.35);
+  const KIT={kick:3,snare:3,hatc:3,hato:2,tom1:2,tom2:2,tom3:2,crash:2,ride:2}; // name → layer count
+  // ponytail: per-instrument trim knobs — tune by ear, samples are peak-normalized
+  const TRIM={kick:1,snare:.9,hatc:.5,hato:.55,tom1:.85,tom2:.85,tom3:.85,crash:.6,ride:.5};
+  const buffers={};let kitLoad=null;
+  function loadKit(){
+    kitLoad??=Promise.all(Object.entries(KIT).map(async([inst,n])=>{
+      buffers[inst]=await Promise.all(Array.from({length:n},async(_,i)=>{
+        const ab=await(await fetch(`assets/drskit/${inst}_${i+1}.flac`)).arrayBuffer();
+        const buf=await ctx().decodeAudioData(ab);
+        let peak=0;const d=buf.getChannelData(0);
+        for(let j=0;j<d.length;j++){const v=Math.abs(d[j]);if(v>peak)peak=v;}
+        return{buf,norm:peak?1/peak:1};
+      }));
+    }));
+    return kitLoad;
   }
-  function snare(c,t){
-    const len=0.12,buf=c.createBuffer(1,c.sampleRate*len,c.sampleRate);
-    const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-    const src=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
-    f.type='bandpass';f.frequency.value=300;f.Q.value=0.5;
-    src.buffer=buf;src.connect(f);f.connect(g);g.connect(c.destination);
-    g.gain.setValueAtTime(0.9,t);g.gain.exponentialRampToValueAtTime(0.001,t+len);
-    src.start(t);src.stop(t+len);
-    const o=c.createOscillator(),go=c.createGain();
-    o.connect(go);go.connect(c.destination);
-    o.frequency.value=190;go.gain.setValueAtTime(0.5,t);go.gain.exponentialRampToValueAtTime(0.001,t+0.04);
-    o.start(t);o.stop(t+0.04);
+  // GM-ish drum map, bucketed for a 9-voice kit
+  function instFor(n){
+    if(n<=36)return'kick';
+    if(n>=37&&n<=40)return'snare';
+    if(n===42||n===44)return'hatc';
+    if(n===46)return'hato';
+    if(n===41||n===43)return'tom3';
+    if(n===45||n===47)return'tom2';
+    if(n===48||n===50)return'tom1';
+    if(n===49||n===52||n===55||n===57)return'crash';
+    if(n===51||n===53||n===59)return'ride';
+    return null; // other percussion — skip in preview
   }
-  function hat(c,t,open){
-    const dur=open?0.2:0.04,buf=c.createBuffer(1,c.sampleRate*dur,c.sampleRate);
-    const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-    const src=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
-    f.type='highpass';f.frequency.value=8000;
-    src.buffer=buf;src.connect(f);f.connect(g);g.connect(c.destination);
-    g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-    src.start(t);src.stop(t+dur);
-  }
-  const POS={'1':0,'1e':1,'1&':2,'1a':3,'2':4,'2e':5,'2&':6,'2a':7,
-             '3':8,'3e':9,'3&':10,'3a':11,'4':12,'4e':13,'4&':14,'4a':15};
-  function toGrid(s){
-    if(!s||s==='-')return[];
-    if(s==='4-on-floor')return[0,4,8,12];
-    return s.split(',').map(x=>POS[x.trim()]).filter(v=>v!=null);
-  }
-  function snareGrid(f){
-    if(f==='d-beat / gallop')return[2,6,10,14];
-    if(f==='half-time')return[8];
-    if(f==='fast one-beat')return[0,4,8,12];
-    if(f==='no-snare')return[];
-    return[4,12];
-  }
-  function schedOne(row,startAt,bpm){
-    const c=ctx(),step=(60/bpm)/4,bars=row.bars||4,barLen=16*step;
-    const kicks=toGrid(row.kick),snares=snareGrid(row.feel);
-    const hats=row.time==='none'?[]:[0,2,4,6,8,10,12,14],open=row.time==='open-hat';
-    for(let b=0;b<bars;b++){
-      const bt=startAt+b*barLen;
-      kicks.forEach(p=>{if(p<16)kick(c,bt+p*step);});
-      snares.forEach(p=>{if(p<16)snare(c,bt+p*step);});
-      hats.forEach(p=>{if(p<16)hat(c,bt+p*step,open);});
+  function hit(inst,vel,t){
+    const layers=buffers[inst];if(!layers)return;
+    const c=ctx();
+    const{buf,norm}=layers[Math.min(layers.length-1,Math.floor(vel/(128/layers.length)))];
+    const src=c.createBufferSource(),g=c.createGain();
+    src.buffer=buf;g.gain.value=norm*TRIM[inst]*(0.35+0.65*vel/127);
+    src.connect(g);g.connect(master);src.start(t);
+    if(inst==='hatc'||inst==='hato'){ // hi-hat choke: closing kills the open ring
+      if(openHatSrc){try{openHatSrc.stop(t+0.03);}catch{}}
+      openHatSrc=inst==='hato'?src:null;
     }
-    return startAt+bars*barLen;
   }
   function stopLoop(){
     clearTimeout(loopTimer);loopTimer=null;
+    if(master){master.disconnect();master=null;} // silences everything scheduled; buffers stay cached
+    openHatSrc=null;
     if(playBtn){playBtn.textContent='▶';playBtn.style.color='';}
     playing=null;playBtn=null;
   }
-  function startLoop(row,btn){
+  async function startLoop(row,btn){
     stopLoop();
-    const c=ctx();let next=c.currentTime+0.05;
-    const loopLen=(row.bars||4)*16*(60/previewBpm)/4;
-    function sched(){next=schedOne(row,next,previewBpm);loopTimer=setTimeout(sched,(loopLen-0.3)*1000);}
-    sched();playing=row;playBtn=btn;
+    btn.textContent='…';playing=row;playBtn=btn;
+    const[,r]=await Promise.all([loadKit(),window.groove.loadNotes(row.path)]);
+    if(playing!==row)return; // user clicked elsewhere while loading
+    const hits=(r.notes||[]).map(([t,n,v])=>[t,instFor(n),v]).filter(x=>x[1]);
+    if(r.error||!hits.length){
+      btn.textContent='✕';btn.title=r.error||'no drum notes found';
+      setTimeout(()=>{if(playBtn!==btn){btn.textContent='▶';btn.title='preview groove';}},1500);
+      playing=null;playBtn=null;return;
+    }
+    const c=ctx();
+    master=c.createGain();master.connect(c.destination);
+    let next=c.currentTime+0.08;
+    function schedPass(){
+      const s=(60/previewBpm)/r.tpb; // seconds per tick at the preview tempo
+      for(const[t,inst,v]of hits)hit(inst,v,next+t*s);
+      const len=r.barTicks*r.bars*s;
+      next+=len;
+      loopTimer=setTimeout(schedPass,Math.max(50,(len-0.3)*1000));
+    }
+    schedPass();
     btn.textContent='■';btn.style.color='var(--red)';
   }
   function attachPlayers(){
@@ -151,19 +154,16 @@ load();
       const cp=tr.querySelector('.cp');if(!cp)return;
       const row=DATA.find(r=>r.path===cp.dataset.p);
       if(!row)return;
-      let last=cp;
-      if(row.feel!=null){ // no preview until the classifier (milestone 2) fills feel/kick
-        const btn=document.createElement('button');
-        btn.className='cp pv';btn.textContent='▶';btn.title='preview groove';
-        btn.style.marginLeft='4px';
-        btn.onclick=e=>{e.stopPropagation();playing===row?stopLoop():startLoop(row,btn);};
-        cp.after(btn);last=btn;
-      }
+      const btn=document.createElement('button');
+      btn.className='cp pv';btn.textContent='▶';btn.title='preview groove';
+      btn.style.marginLeft='4px';
+      btn.onclick=e=>{e.stopPropagation();playing===row?stopLoop():startLoop(row,btn);};
+      cp.after(btn);
       const rb=document.createElement('button');
-      rb.className='cp pv';rb.textContent='📂';rb.title='reveal in Finder';
+      rb.className='cp';rb.textContent='📂';rb.title='reveal in Finder';
       rb.style.marginLeft='4px';
       rb.onclick=e=>{e.stopPropagation();window.groove.reveal(row.path);};
-      last.after(rb);
+      btn.after(rb);
     });
   }
   new MutationObserver(attachPlayers).observe(document.getElementById('tbl'),{childList:true});
