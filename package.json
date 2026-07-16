@@ -19,6 +19,7 @@
       "main.js",
       "preload.js",
       "scanner.js",
+      "drag-icon.js",
       "app.js",
       "index.html",
       "style.css",
