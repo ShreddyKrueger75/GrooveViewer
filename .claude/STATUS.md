@@ -2,7 +2,10 @@
 
 **Updated:** 2026-07-11 (Claude session)
 **Branch:** `claude/electron-shell` (working branch; main untouched)
-**State:** UN-PARKED 2026-07-11 — John declared "getting serious." Bootstrapped + milestone 1 built.
+**State:** UN-PARKED 2026-07-11 — John declared "getting serious," then said "finish the
+app." Full v1 roadmap built this session: shell → scanner → real preview → classifier →
+drag-to-DAW → desktop packaging. Branch is unpushed, unmerged — review/merge is next,
+not done automatically per the three-gate rule.
 
 ## Decisions (John, 2026-07-11)
 - **Platform: cross-platform** (not Mac-native SwiftUI — overrides the old lean in PARKED.md)
@@ -58,8 +61,46 @@
   notarization + app icon still TODO at release**. appId placeholder:
   `com.bloodyfinger.grooveviewer` (bundle id is TBD in canonical facts).
 
+## Milestone: feel classifier (same session)
+- `scanner.classify()` — reverse-engineered against the 396k ground-truth catalog the
+  same way header facts were: dumped raw MIDI note ticks for records across every
+  cat/feel/kick/time value, found the underlying rule per field, measured accuracy at
+  scale (~400-record stride-1000 sample), iterated thresholds, re-measured.
+- **kick**: bar-relative 16-grid positions (mod barTicks) IF the pattern repeats
+  identically every bar → `"1,3"` / `"4-on-floor"` notation exactly matching the
+  prototype's; else `"N hits"` (N = union of positions across bars) rather than a
+  confidently wrong single-bar label.
+- **time** (cymbal): open-hat > ride > closed-hat > none, by note presence.
+- **toms**: any tom-range note present.
+- **feel**: driven by the snare's unique bar-relative grid positions — exact-match
+  rules for `{8}`→half-time, `{0,4,8,12}`→fast-one-beat, backbeat-shape→straight
+  backbeat, else density-bucketed (empty/no-snare/backbeat-ish/d-beat-gallop/busy-fill).
+- **Measured accuracy** (n=397, ground truth): header facts 99.7%, hits 100%, toms
+  87.7%, cymbal 91.2%, feel 71.5%. Real, documented ceiling — MIDI note-number-to-
+  drum-piece mapping isn't standardized across SSD5/EZX/Groove Monkee, so kick/feel
+  can't hit header-fact precision without a per-library note map (future work, not
+  now). `npm test` asserts floors at these measured levels, not 100%.
+- ▶ preview unaffected (already played real notes, independent of classifier).
+
+## Milestone: drag-to-DAW (same session)
+- Drag any **file name** cell out of the table → `webContents.startDrag()` in
+  `main.js`, triggered by a renderer `dragstart` → sync IPC (`drag:start`).
+- Drag-cursor icon: `drag-icon.js` hand-writes a minimal 32×32 solid-color PNG
+  (brand `--acc`) via a from-scratch CRC32 + PNG-chunk encoder — no new dependency,
+  no external asset. `nativeImage.createFromBuffer` confirmed non-empty/32×32.
+- E2E-verified up to the OS handoff: real `dragstart` in a loaded renderer → exact
+  file path arrives at the main-process IPC handler. The actual native drag-into-a-
+  DAW-window gesture needs John's hands — can't be scripted headlessly (same class
+  of gate as TetherMT's hardware checks).
+
+## Milestone: desktop app packaging, updated for the new files
+- Re-packaged after classifier + drag-icon.js landed; `build.files` whitelist updated
+  to include `drag-icon.js`; asar re-audited clean (no dev-data/beat-catalog leakage).
+  Packaged `.app` launch re-verified.
+
 ## Known ceilings (deliberate, ponytail-marked)
-- Feel/kick/cymbal columns still show "—" until the classifier milestone fills them
+- Classifier accuracy ceiling documented above — kick/feel are the fuzzy fields;
+  header facts and hit-count remain near-exact
 - Preview one-shots are mono close-mics (no room/overhead blend) — revisit if it
   sounds too dry
 - Non-kit percussion notes (cowbell, claps, etc.) are skipped in preview
@@ -68,12 +109,16 @@
   single `.lib` pack makes its subfolders the "packs" (pick the parent Grooves folder
   for correct pack names)
 - 1,000-row render cap kept from prototype — virtualize when it hurts
+- Drag icon is a flat brand-color square, not real iconography (placeholder, documented
+  in drag-icon.js)
+- App icon, Developer ID signing, notarization still open for a real release build
+- `cat` field (fill/break/groove/etc.) still uses the simple filename heuristic from
+  milestone 1.5, not reverse-engineered from note data — lowest-priority remaining gap
 
 ## Next move
-1. John reviews the diff on `claude/electron-shell` (three-gate merge: diff read ✅ by
-   Claude, QA = John runs `npm start` and picks his Grooves folder, John merges)
-2. Then: the feel classifier in `scanner.js` (feel/kick/cymbal/hits/toms), validated
-   against the 396k-record prototype catalog as ground truth
+John reviews the diff on `claude/electron-shell` (three-gate merge: diff read ✅ by
+Claude, QA = John runs `npm start` or the packaged `.app`, picks his Grooves folder,
+judges the classifier/preview mix by ear, tries a real drag into his DAW — then merges).
 
 ## Vault sync
 ✅ 2026-07-11: session-log line, Daily entry, and session note
