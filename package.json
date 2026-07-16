@@ -7,10 +7,28 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node test/scan-check.js"
+    "test": "node test/scan-check.js",
+    "package": "electron-builder --mac dir",
+    "dist": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.bloodyfinger.grooveviewer",
+    "productName": "GrooveViewer",
+    "directories": { "output": "dist" },
+    "files": [
+      "main.js",
+      "preload.js",
+      "scanner.js",
+      "app.js",
+      "index.html",
+      "style.css",
+      "assets/**"
+    ],
+    "mac": { "category": "public.app-category.music" }
   },
   "devDependencies": {
-    "electron": "^43.1.0"
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "midi-file": "^1.2.4"
