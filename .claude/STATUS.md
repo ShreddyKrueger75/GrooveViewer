@@ -49,6 +49,15 @@
 - ⚠️ Mix quality is untuned-by-ear (TRIM constants in app.js) — John should judge and
   we tweak numbers.
 
+## Milestone: desktop app packaging (same session)
+- `npm run package` → `dist/mac-arm64/GrooveViewer.app` (electron-builder, `--mac dir`);
+  `npm run dist` makes the DMG when we want one. Launch smoke-tested.
+- **Whitelist bundling** (`build.files` in package.json) so `dev-data/` and
+  `beat-catalog.html` can never leak into the bundle — asar contents audited clean.
+- Signed with John's local Apple Development cert automatically; **Developer ID signing +
+  notarization + app icon still TODO at release**. appId placeholder:
+  `com.bloodyfinger.grooveviewer` (bundle id is TBD in canonical facts).
+
 ## Known ceilings (deliberate, ponytail-marked)
 - Feel/kick/cymbal columns still show "—" until the classifier milestone fills them
 - Preview one-shots are mono close-mics (no room/overhead blend) — revisit if it
