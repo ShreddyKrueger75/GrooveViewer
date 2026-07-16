@@ -33,7 +33,7 @@ function render(){
 <td>${esc(x.time)}</td><td title="${esc(x.kick)}">${esc(x.kick)}</td>
 <td title="${esc(x.pack)}">${esc(x.pack.slice(0,30))}</td>
 <td title="${esc(x.section)}">${esc(x.section.slice(0,30))}</td>
-<td title="${esc(x.file)}">${esc(x.file.slice(0,30))}</td>
+<td class="dragfile" title="drag into your DAW: ${esc(x.file)}" draggable="true" data-path="${esc(x.path)}">${esc(x.file.slice(0,30))}</td>
 <td><button class="cp" data-p="${esc(x.path)}">copy path</button></td></tr>`).join('');
   $('tbl').innerHTML=rows;
   $('tbl').querySelectorAll('.cp').forEach(b=>b.onclick=()=>{
@@ -42,6 +42,10 @@ function render(){
 }
 document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{
   const k=th.dataset.k;sortD=(sortK===k)?-sortD:1;sortK=k;render();
+});
+$('tbl').addEventListener('dragstart',e=>{
+  const td=e.target.closest('.dragfile');if(!td)return;
+  e.preventDefault();window.groove.startDrag(td.dataset.path);
 });
 ['q','sF','sC','sT','sP'].forEach(id=>$(id).addEventListener('input',debounce(render,150)));
 ['bN','bX'].forEach(id=>$(id).addEventListener('input',debounce(render,300)));

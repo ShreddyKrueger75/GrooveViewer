@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('groove', {
   rescanLibrary: () => ipcRenderer.invoke('library:rescan'),
   loadNotes: (p) => ipcRenderer.invoke('midi:notes', p),
   reveal: (p) => ipcRenderer.send('reveal', p),
+  startDrag: (p) => ipcRenderer.send('drag:start', p),
   onScanProgress: (cb) => ipcRenderer.on('scan:progress', (_e, msg) => cb(msg)),
 });

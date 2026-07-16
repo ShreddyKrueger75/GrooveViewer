@@ -27,3 +27,4 @@ th:hover{color:var(--txt)}tr:hover td{background:#16130e}
 .col-panel.open{display:block}
 .col-panel label{display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;color:var(--txt);font-size:12px;white-space:nowrap}
 .col-panel input[type=checkbox]{accent-color:var(--red);width:13px;height:13px}
+.dragfile{cursor:grab}.dragfile:hover{color:var(--acc)}

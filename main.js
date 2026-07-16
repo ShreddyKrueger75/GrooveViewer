@@ -1,8 +1,11 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
 const { scan, readNotes } = require('./scanner');
+const { solidSquarePng } = require('./drag-icon');
+
+const dragIcon = nativeImage.createFromBuffer(solidSquarePng(32, [216, 166, 87])); // --acc
 
 // Scan, don't ship: the catalog is built by scanning the user's own library
 // folder and cached (with the chosen path) in the OS per-user app-data dir.
@@ -64,6 +67,14 @@ ipcMain.handle('midi:notes', (_e, p) => {
 });
 
 ipcMain.on('reveal', (_e, p) => shell.showItemInFolder(p));
+
+// Drag-to-DAW: must be a synchronous IPC send from the renderer's own
+// dragstart handler — startDrag() only works inside that native gesture.
+ipcMain.on('drag:start', (event, filePath) => {
+  if (typeof filePath === 'string' && fs.existsSync(filePath)) {
+    event.sender.startDrag({ file: filePath, icon: dragIcon });
+  }
+});
 
 app.whenReady().then(() => {
   win = new BrowserWindow({
