@@ -1,5 +1,6 @@
 const MAX=1000;
 let DATA=[],sortK='pack',sortD=1,timer=null;
+let VIEW=[],selIdx=-1; // rows currently rendered + keyboard selection into them
 const $=id=>document.getElementById(id);
 const fc=f=>f==='d-beat / gallop'?'f-d':f==='straight backbeat'?'f-b':f==='half-time'?'f-h':f==='fast one-beat'?'f-f':'f-x';
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c])}
@@ -27,7 +28,8 @@ function render(){
   let r=filt();r.sort((a,b)=>{let x=a[sortK]??'',y=b[sortK]??'';return(x>y?1:x<y?-1:0)*sortD;});
   $('cnt').textContent=r.length.toLocaleString()+' / '+DATA.length.toLocaleString()+' grooves';
   const over=r.length>MAX;$('cap').textContent=over?`Showing first ${MAX} — narrow filters to see the rest.`:'';
-  const rows=(over?r.slice(0,MAX):r).map(x=>`<tr>
+  VIEW=over?r.slice(0,MAX):r;selIdx=-1; // selection resets when the visible set changes
+  const rows=VIEW.map(x=>`<tr>
 <td>${x.feel==null?'—':`<span class="tag ${fc(x.feel)}">${esc(x.feel)}</span>`}</td>
 <td>${esc(x.cat)}</td><td>${x.bpm??'—'}</td><td>${esc(x.ts)}</td><td>${x.bars}</td>
 <td>${esc(x.time)}</td><td title="${esc(x.kick)}">${esc(x.kick)}</td>
@@ -36,7 +38,8 @@ function render(){
 <td class="dragfile" title="drag into your DAW: ${esc(x.file)}" draggable="true" data-path="${esc(x.path)}">${esc(x.file.slice(0,30))}</td>
 <td><button class="cp" data-p="${esc(x.path)}">copy path</button></td></tr>`).join('');
   $('tbl').innerHTML=rows;
-  $('tbl').querySelectorAll('.cp').forEach(b=>b.onclick=()=>{
+  $('tbl').querySelectorAll('.cp').forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); // buttons shouldn't also trigger row selection
     navigator.clipboard.writeText(b.dataset.p);b.textContent='✓ copied';setTimeout(()=>b.textContent='copy path',1200);
   });
 }
@@ -46,6 +49,17 @@ document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{
 $('tbl').addEventListener('dragstart',e=>{
   const td=e.target.closest('.dragfile');if(!td)return;
   e.preventDefault();window.groove.startDrag(td.dataset.path);
+});
+function rowEls(){return $('tbl').querySelectorAll('tr');}
+function selectRow(i){
+  const rows=rowEls();if(!rows.length)return;
+  selIdx=Math.max(0,Math.min(rows.length-1,i));
+  rows.forEach((tr,j)=>tr.classList.toggle('sel',j===selIdx));
+  rows[selIdx].scrollIntoView({block:'nearest'});
+}
+$('tbl').addEventListener('click',e=>{
+  const tr=e.target.closest('tr');if(!tr)return;
+  selectRow([...rowEls()].indexOf(tr));
 });
 ['q','sF','sC','sT','sP'].forEach(id=>$(id).addEventListener('input',debounce(render,150)));
 ['bN','bX'].forEach(id=>$(id).addEventListener('input',debounce(render,300)));
@@ -58,7 +72,10 @@ function show(json){
 async function pickLibrary(){
   $('pick').hidden=true;$('lp').textContent='Choose a folder…';
   const r=await window.groove.chooseLibrary();
-  if(r.json)return show(r.json);
+  if(r.json){
+    try{return show(r.json);}
+    catch(e){$('lp').textContent='Error: '+e.message;$('pick').hidden=false;return;}
+  }
   if(r.canceled&&DATA.length){$('loader').style.display='none';$('app').style.display='block';return;}
   $('lp').textContent=r.error||'Point GrooveViewer at your groove library to get started.';
   $('pick').hidden=false;
@@ -212,6 +229,30 @@ load();
       pickLibrary();
     };
   }
+  // Keyboard auditioning: ↑/↓ select (and keep playing while you move),
+  // space/enter play/stop the selected groove, esc stops.
+  function playSel(){
+    const tr=rowEls()[selIdx],row=VIEW[selIdx];
+    const btn=tr&&tr.querySelector('.pv');
+    if(btn&&row)startLoop(row,btn);
+  }
+  document.addEventListener('keydown',e=>{
+    const tag=(document.activeElement||{}).tagName;
+    if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA')return;
+    if($('app').style.display!=='block')return;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      const wasPlaying=!!playing;
+      selectRow(selIdx+(e.key==='ArrowDown'?1:-1));
+      if(wasPlaying)playSel(); // auto-advance: keep auditioning as you move
+    }else if(e.key===' '||e.key==='Enter'){
+      e.preventDefault();
+      if(selIdx<0)selectRow(0);
+      if(playing&&playing===VIEW[selIdx])stopLoop();else playSel();
+    }else if(e.key==='Escape'){
+      stopLoop();
+    }
+  });
   addSlider();
   addColumns();
   addLibraryBtn();

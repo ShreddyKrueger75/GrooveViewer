@@ -18,6 +18,9 @@ const TOM_NOTES = [41, 43, 45, 47, 48, 50, 58, 60, 61, 62, 63, 64];
 // 396/397 against the prototype catalog as ground truth (one odd-meter
 // fill disagrees).
 function parseFile(file) {
+  // real groove MIDI is a few KB; a multi-MB "MIDI" is corrupt or hostile —
+  // fail fast instead of blocking on a huge read/parse
+  if (fs.statSync(file).size > 10 * 1024 * 1024) throw new Error('MIDI file over 10 MB — skipped');
   const parsed = parseMidi(fs.readFileSync(file));
   let bpm = null, num = null, den = null, lastOn = 0;
   const notes = [];
