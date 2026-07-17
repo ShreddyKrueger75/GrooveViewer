@@ -4,6 +4,8 @@ Scan, catalog, and preview your own drum-groove MIDI libraries (SSD5,
 EZdrummer/Superior, Groove Monkee, raw MIDI folders). Cross-platform
 Electron desktop app. Product #3 of Bloody Finger Music.
 
+![GrooveViewer catalog browser](screenshot.png)
+
 **The one non-negotiable: Scan, don't ship.** The app scans the user's own
 installed libraries. No groove MIDI or catalog data derived from commercial
 libraries is ever bundled, embedded, or committed.
