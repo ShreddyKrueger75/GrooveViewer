@@ -1,7 +1,7 @@
 # GrooveViewer — STATUS
 
-**Updated:** 2026-07-11 (Claude session)
-**Branch:** `claude/electron-shell` (working branch; main untouched)
+**Updated:** 2026-07-16 (Claude session)
+**Branch:** `claude/quick-wins` (working branch; v1 merged to main @ `ed83efd`)
 **State:** UN-PARKED 2026-07-11 — John declared "getting serious," then said "finish the
 app." Full v1 roadmap built this session: shell → scanner → real preview → classifier →
 drag-to-DAW → desktop packaging. Branch is unpushed, unmerged — review/merge is next,
@@ -115,10 +115,40 @@ not done automatically per the three-gate rule.
 - `cat` field (fill/break/groove/etc.) still uses the simple filename heuristic from
   milestone 1.5, not reverse-engineered from note data — lowest-priority remaining gap
 
+## v1 merged to main (2026-07-16, John's call)
+`claude/electron-shell` fast-forwarded into `main` @ `ed83efd` and pushed. John's
+hands-on QA (mix by ear, real DAW drag) still outstanding — merged on his explicit
+instruction before that gate.
+
+## Improvement roadmap (multi-agent review, verified against code, 2026-07-16)
+Full findings in vault: `Projects/Groove Library/GrooveViewer — improvement roadmap`.
+Condensed, prioritized:
+1. **Before selling** — in-app About/credits w/ DRSKit CC-BY attribution (license
+   obligation, currently invisible); LICENSE file (repo has none); Developer ID
+   signing + notarization; README screenshot caption ("your own library").
+2. **Core loop UX** — keyboard auditioning (arrows + space, auto-advance while
+   playing); persist filter state + window size; master volume slider (doubles as
+   TRIM-tuning tool); first-run guidance text.
+3. **Real bugs** — concurrent-scan race (two scans clobber cache/settings);
+   IPC path validation vs library root; unmounted-volume guards (reveal silent-fails);
+   MIDI file-size guard.
+4. **Audio/classifier** — 5–10ms fade-in envelope (kills attack clicks);
+   per-library note maps (feel 71.5%→~85%, medium effort, data already in dev
+   catalog); `cat` from folder names (fill/break only); lower hat TRIMs first if
+   dense passages clip.
+5. **Perf, paced** — Map lookup in attachPlayers (real win now); incremental rescan
+   via mtime/size (when rescans annoy); parallel scan reads (v2, ~2–4x).
+Rejected on verification (don't relitigate): virtualized rendering (cap fine),
+favorites/collections (premature), auto-update + trial/licensing code (pre-ship
+milestone, after monetization model chosen), IPC catalog transfer rework
+(measured fine), "showItemInFolder is macOS-only" (false — cross-platform).
+
+## In flight: `claude/quick-wins` (batch 1)
+About box w/ CC-BY attribution + version · keyboard auditioning · scan-race fix ·
+small guards (reveal existsSync, MIDI size cap, pickLibrary try/catch).
+
 ## Next move
-John reviews the diff on `claude/electron-shell` (three-gate merge: diff read ✅ by
-Claude, QA = John runs `npm start` or the packaged `.app`, picks his Grooves folder,
-judges the classifier/preview mix by ear, tries a real drag into his DAW — then merges).
+Finish batch 1 → diff read + QA → John merges.
 
 ## Vault sync
 ✅ 2026-07-11: session-log line, Daily entry, and session note
