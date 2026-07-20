@@ -1,0 +1,13 @@
+Copyright © 2026 Bloody Finger Music. All rights reserved.
+
+This software is proprietary. No part of it may be copied, modified,
+distributed, sublicensed, or reverse-engineered without prior written
+permission, except as permitted for personal use under a purchased license.
+
+Third-party components:
+
+- Drum preview samples: DRSKit 2 (DrumGizmo project) by Lars Muldjord and
+  Bent Bisballe Nyeng, drum kit provided by Jes Eiler of DRSDrums
+  (drskit.dk), used under CC BY 4.0 — see assets/drskit/ATTRIBUTION.md.
+- Open-source dependencies are used under their respective licenses — see
+  package.json and each package's own LICENSE.

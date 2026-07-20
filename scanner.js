@@ -128,29 +128,40 @@ async function findMidis(root, onProgress) {
   return files;
 }
 
-async function scan(root, onProgress = async () => {}) {
+// prevByPath: Map<absPath, prior record> from the last scan of this same
+// root — unchanged files (same size + mtime) are reused instead of re-parsed.
+async function scan(root, onProgress = async () => {}, prevByPath = null) {
   const files = await findMidis(root, onProgress);
   const clean = (s) => s.replace(/\.(lib|sng|prt)$/i, '');
   const out = [];
   for (let i = 0; i < files.length; i++) {
     const p = files[i];
-    const rel = path.relative(root, p).split(path.sep);
-    let info = { bpm: null, ts: null, bars: 1 };
-    let cls = { feel: null, kick: '', time: null, hits: null, toms: null };
-    try {
-      const parsed = parseFile(p);
-      info = { bpm: parsed.bpm, ts: `${parsed.num}/${parsed.den}`, bars: parsed.bars };
-      cls = classify(parsed);
-    } catch { /* unreadable MIDI — keep it listed anyway */ }
-    out.push({
-      pack: rel.length > 1 ? clean(rel[0]) : clean(path.basename(root)),
-      section: rel.slice(1, -1).map(clean).join(' / '),
-      file: rel[rel.length - 1],
-      path: p,
-      cat: /fill/i.test(rel[rel.length - 1]) ? 'fill' : 'groove',
-      ...info,
-      ...cls,
-    });
+    const st = fs.statSync(p);
+    const prev = prevByPath && prevByPath.get(p);
+    if (prev && prev.size === st.size && prev.mtimeMs === st.mtimeMs) {
+      out.push(prev);
+    } else {
+      const rel = path.relative(root, p).split(path.sep);
+      const catSrc = rel.join(' ');
+      let info = { bpm: null, ts: null, bars: 1 };
+      let cls = { feel: null, kick: '', time: null, hits: null, toms: null };
+      try {
+        const parsed = parseFile(p);
+        info = { bpm: parsed.bpm, ts: `${parsed.num}/${parsed.den}`, bars: parsed.bars };
+        cls = classify(parsed);
+      } catch { /* unreadable MIDI — keep it listed anyway */ }
+      out.push({
+        pack: rel.length > 1 ? clean(rel[0]) : clean(path.basename(root)),
+        section: rel.slice(1, -1).map(clean).join(' / '),
+        file: rel[rel.length - 1],
+        path: p,
+        size: st.size,
+        mtimeMs: st.mtimeMs,
+        cat: /fill/i.test(catSrc) ? 'fill' : /break/i.test(catSrc) ? 'break' : 'groove',
+        ...info,
+        ...cls,
+      });
+    }
     if (i % 200 === 0) await onProgress(`Analyzing… ${i.toLocaleString()} / ${files.length.toLocaleString()}`);
   }
   return out;

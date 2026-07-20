@@ -1,6 +1,9 @@
 const MAX=1000;
-let DATA=[],sortK='pack',sortD=1,timer=null;
+let DATA=[],PATH_MAP=new Map(),sortK='pack',sortD=1,timer=null;
 let VIEW=[],selIdx=-1; // rows currently rendered + keyboard selection into them
+const FILTER_KEYS=['q','sF','sC','sT','sP','bN','bX'];
+function saveFilters(){try{localStorage.setItem('gv-filters',JSON.stringify(Object.fromEntries(FILTER_KEYS.map(k=>[k,$(k).value]))));}catch{}}
+function restoreFilters(){try{const s=JSON.parse(localStorage.getItem('gv-filters')||'{}');FILTER_KEYS.forEach(k=>{if(s[k]!=null)$(k).value=s[k];});}catch{}}
 const $=id=>document.getElementById(id);
 const fc=f=>f==='d-beat / gallop'?'f-d':f==='straight backbeat'?'f-b':f==='half-time'?'f-h':f==='fast one-beat'?'f-f':'f-x';
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c])}
@@ -64,12 +67,14 @@ $('tbl').addEventListener('click',e=>{
   const tr=e.target.closest('tr');if(!tr)return;
   selectRow([...rowEls()].indexOf(tr));
 });
-['q','sF','sC','sT','sP'].forEach(id=>$(id).addEventListener('input',debounce(render,150)));
-['bN','bX'].forEach(id=>$(id).addEventListener('input',debounce(render,300)));
+function renderAndSave(){saveFilters();render();}
+['q','sF','sC','sT','sP'].forEach(id=>$(id).addEventListener('input',debounce(renderAndSave,150)));
+['bN','bX'].forEach(id=>$(id).addEventListener('input',debounce(renderAndSave,300)));
 window.groove.onScanProgress(m=>{$('lp').textContent=m;});
 function show(json){
   DATA=JSON.parse(json);
-  buildSelects();render();
+  PATH_MAP=new Map(DATA.map(r=>[r.path,r]));
+  buildSelects();restoreFilters();render();
   $('loader').style.display='none';$('app').style.display='block';
 }
 async function pickLibrary(){
@@ -80,7 +85,7 @@ async function pickLibrary(){
     catch(e){$('lp').textContent='Error: '+e.message;$('pick').hidden=false;return;}
   }
   if(r.canceled&&DATA.length){$('loader').style.display='none';$('app').style.display='block';return;}
-  $('lp').textContent=r.error||'Point GrooveViewer at your groove library to get started.';
+  $('lp').textContent=r.error||'Point GrooveViewer at your SSD5, EZdrummer/Superior, Groove Monkee, or raw MIDI folder to get started.';
   $('pick').hidden=false;
 }
 async function load(){
@@ -88,7 +93,7 @@ async function load(){
   try{
     const r=await window.groove.loadCatalog();
     if(r.json)return show(r.json);
-    $('lp').textContent='Point GrooveViewer at your groove library to get started.';
+    $('lp').textContent='Point GrooveViewer at your SSD5, EZdrummer/Superior, Groove Monkee, or raw MIDI folder to get started.';
     $('pick').hidden=false;
   }catch(e){$('lp').textContent='Error: '+e.message;}
 }
@@ -98,8 +103,12 @@ load();
 // DRSKit one-shots (CC-BY 4.0 — see assets/drskit/ATTRIBUTION.md).
 (function(){
   let actx=null,master=null,playing=null,playBtn=null,loopTimer=null,previewBpm=182,openHatSrc=null;
+  let masterVolNode=null,vol=+(localStorage.getItem('gv-vol')??1);
   const get=id=>document.getElementById(id);
-  function ctx(){if(!actx)actx=new AudioContext();if(actx.state==='suspended')actx.resume();return actx;}
+  function ctx(){
+    if(!actx){actx=new AudioContext();masterVolNode=actx.createGain();masterVolNode.gain.value=vol;masterVolNode.connect(actx.destination);}
+    if(actx.state==='suspended')actx.resume();return actx;
+  }
   const KIT={kick:3,snare:3,hatc:3,hato:2,tom1:2,tom2:2,tom3:2,crash:2,ride:2}; // name → layer count
   // ponytail: per-instrument trim knobs — tune by ear, samples are peak-normalized
   const TRIM={kick:1,snare:.9,hatc:.5,hato:.55,tom1:.85,tom2:.85,tom3:.85,crash:.6,ride:.5};
@@ -134,7 +143,9 @@ load();
     const c=ctx();
     const{buf,norm}=layers[Math.min(layers.length-1,Math.floor(vel/(128/layers.length)))];
     const src=c.createBufferSource(),g=c.createGain();
-    src.buffer=buf;g.gain.value=norm*TRIM[inst]*(0.35+0.65*vel/127);
+    src.buffer=buf;
+    const peak=norm*TRIM[inst]*(0.35+0.65*vel/127);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+0.005); // 5ms fade-in kills attack clicks
     src.connect(g);g.connect(master);src.start(t);
     if(inst==='hatc'||inst==='hato'){ // hi-hat choke: closing kills the open ring
       if(openHatSrc){try{openHatSrc.stop(t+0.03);}catch{}}
@@ -160,7 +171,7 @@ load();
       playing=null;playBtn=null;return;
     }
     const c=ctx();
-    master=c.createGain();master.connect(c.destination);
+    master=c.createGain();master.connect(masterVolNode);
     let next=c.currentTime+0.08;
     function schedPass(){
       const s=(60/previewBpm)/r.tpb; // seconds per tick at the preview tempo
@@ -176,7 +187,7 @@ load();
     document.querySelectorAll('#tbl tr').forEach(tr=>{
       if(tr.querySelector('.pv'))return;
       const cp=tr.querySelector('.cp');if(!cp)return;
-      const row=DATA.find(r=>r.path===cp.dataset.p);
+      const row=PATH_MAP.get(cp.dataset.p);
       if(!row)return;
       const btn=document.createElement('button');
       btn.className='cp pv';btn.textContent='▶';btn.title='preview groove';
@@ -222,6 +233,17 @@ load();
       if(playing){const r=playing,b=playBtn;stopLoop();startLoop(r,b);}
     };
   }
+  function addVolumeSlider(){
+    const bar=document.querySelector('.bar');
+    const w=document.createElement('div');
+    w.style.cssText='display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11px';
+    w.innerHTML=`vol <input type="range" id="pvvol" min="0" max="1.5" step="0.05" value="${vol}" style="width:60px;accent-color:var(--acc)">`;
+    bar.appendChild(w);
+    get('pvvol').oninput=function(){
+      vol=+this.value;if(masterVolNode)masterVolNode.gain.value=vol;
+      localStorage.setItem('gv-vol',vol);
+    };
+  }
   function addLibraryBtn(){
     const bar=document.querySelector('.bar');
     const b=document.createElement('button');
@@ -258,6 +280,7 @@ load();
     }
   });
   addSlider();
+  addVolumeSlider();
   addColumns();
   addLibraryBtn();
 })();

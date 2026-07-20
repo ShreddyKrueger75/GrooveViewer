@@ -14,9 +14,20 @@ const CACHE = () => path.join(app.getPath('userData'), 'catalog.json.gz');
 
 let win;
 let scanning = false; // one scan at a time — concurrent scans would clobber the cache
+let libraryPath = null; // current scanned root — IPC handlers validate paths against this
 
 function readSettings() {
   try { return JSON.parse(fs.readFileSync(SETTINGS(), 'utf8')); } catch { return {}; }
+}
+function writeSettings(patch) {
+  fs.writeFileSync(SETTINGS(), JSON.stringify({ ...readSettings(), ...patch }));
+}
+// defense-in-depth: renderer-supplied paths (midi:notes/reveal/drag:start)
+// must resolve inside the scanned library root, not just exist on disk
+function withinLibrary(p) {
+  if (!libraryPath || typeof p !== 'string') return false;
+  const rel = path.relative(libraryPath, p);
+  return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
 async function scanAndCache(root) {
@@ -27,13 +38,19 @@ async function scanAndCache(root) {
     return new Promise(setImmediate); // let the renderer paint
   };
   try {
-    const records = await scan(root, progress);
+    let prevByPath = null;
+    try {
+      const prev = JSON.parse(zlib.gunzipSync(fs.readFileSync(CACHE())).toString('utf8'));
+      prevByPath = new Map(prev.map((r) => [r.path, r])); // unchanged files skip re-parse
+    } catch { /* no prior cache — full scan */ }
+    const records = await scan(root, progress, prevByPath);
     if (!records.length) return { error: `No MIDI files found in ${root}` };
     const json = JSON.stringify(records);
     const tmp = CACHE() + '.tmp'; // write-then-rename so a failed scan can't corrupt the cache
     fs.writeFileSync(tmp, zlib.gzipSync(json));
     fs.renameSync(tmp, CACHE());
-    fs.writeFileSync(SETTINGS(), JSON.stringify({ libraryPath: root }));
+    writeSettings({ libraryPath: root });
+    libraryPath = root;
     return { json, libraryPath: root };
   } catch (e) {
     return { error: e.message };
@@ -44,10 +61,9 @@ async function scanAndCache(root) {
 
 ipcMain.handle('catalog:load', () => {
   try {
-    return {
-      json: zlib.gunzipSync(fs.readFileSync(CACHE())).toString('utf8'),
-      libraryPath: readSettings().libraryPath,
-    };
+    const json = zlib.gunzipSync(fs.readFileSync(CACHE())).toString('utf8');
+    libraryPath = readSettings().libraryPath;
+    return { json, libraryPath };
   } catch {
     return { json: null };
   }
@@ -71,17 +87,18 @@ ipcMain.handle('library:rescan', () => {
 });
 
 ipcMain.handle('midi:notes', (_e, p) => {
+  if (!withinLibrary(p)) return { error: 'Path outside the scanned library' };
   try { return readNotes(p); } catch (e) { return { error: e.message }; }
 });
 
 ipcMain.on('reveal', (_e, p) => {
-  if (typeof p === 'string' && fs.existsSync(p)) shell.showItemInFolder(p); // silent no-op if volume unmounted
+  if (withinLibrary(p) && fs.existsSync(p)) shell.showItemInFolder(p); // silent no-op if volume unmounted
 });
 
 // Drag-to-DAW: must be a synchronous IPC send from the renderer's own
 // dragstart handler — startDrag() only works inside that native gesture.
 ipcMain.on('drag:start', (event, filePath) => {
-  if (typeof filePath === 'string' && fs.existsSync(filePath)) {
+  if (withinLibrary(filePath) && fs.existsSync(filePath)) {
     event.sender.startDrag({ file: filePath, icon: dragIcon });
   }
 });
@@ -101,12 +118,15 @@ app.setAboutPanelOptions({
 });
 
 app.whenReady().then(() => {
+  const { winBounds } = readSettings();
   win = new BrowserWindow({
     width: 1280,
     height: 800,
+    ...winBounds,
     backgroundColor: '#0a0908',
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   });
+  win.on('close', () => writeSettings({ winBounds: win.getBounds() }));
   win.loadFile('index.html');
 });
 

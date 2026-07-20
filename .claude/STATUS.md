@@ -172,9 +172,52 @@ Note: the runtime harness itself had two bugs on first pass (wrong input id
 'search' vs 'q'; const redeclaration across executeJavaScript calls) — fixed
 in scratchpad before trusting check 3/4 results.
 
+## Quick wins batch 2 (2026-07-20, John's trigger: "make all the improvements
+suggested") — roadmap items implemented, still on `claude/quick-wins`
+- **LICENSE file** — proprietary/all-rights-reserved (matches `"private":
+  true` + no-subscriptions brand rule); `package.json` `license: UNLICENSED`;
+  README screenshot caption.
+- **Persisted state** — search/filter fields (localStorage) and window size
+  (`settings.json`, merge-safe via new `writeSettings()`) survive relaunch.
+- **Master volume slider** — persistent gain node ahead of the per-loop
+  gain, 0–1.5 range, localStorage-persisted; doubles as the TRIM-tuning
+  tool the roadmap asked for (actual per-instrument TRIM constants left
+  alone — that's still John's ear-call).
+- **IPC path validation vs library root** — `midi:notes`/`reveal`/
+  `drag:start` now reject any path outside the currently scanned
+  `libraryPath` (`withinLibrary()`, `path.relative`-based, defense-in-depth
+  against a compromised renderer).
+- **5ms fade-in envelope** on every sample trigger — kills attack clicks.
+- **`cat` from folder names** — fill/break now matched against the full
+  relative path (file + folder segments), not just the filename.
+- **Map lookup in attachPlayers** — `PATH_MAP` (path→row) replaces the
+  linear `DATA.find` scan on every re-render.
+- **Incremental rescan** — `scan()` takes a `prevByPath` map; unchanged
+  files (same size + mtimeMs) are reused instead of re-parsed;
+  `scanAndCache` loads the existing cache to build it. New `size`/
+  `mtimeMs` fields on each record (internal only, not rendered).
+- **First-run guidance** — loader text now names the supported library
+  types (SSD5, EZdrummer/Superior, Groove Monkee, raw MIDI).
+- Skipped, explicitly not silently dropped: **Developer ID signing +
+  notarization** (needs John's Apple Developer account/certs — can't do
+  without him); **per-library note maps** (feel 71.5%→~85%; this is a
+  reverse-engineering effort on the scale of the original classifier work,
+  deserves its own session, not a quick win); **lower hat TRIMs** (his
+  ears — the new vol slider is the tool now); **parallel scan reads**
+  (roadmap explicitly paced this as v2, incremental rescan covers most of
+  the practical win already).
+- Verified: `npm test` green (tier 2 floors unchanged: header 99.7%, hits
+  100%, toms 87.7%, time 91.2%, feel 71.5%); `npm run package` clean;
+  runtime harness against the real 210-file Groove Monkee freebie pack —
+  IPC path validation (in-library allowed, `/etc/passwd` blocked), preview
+  playback still fires (PATH_MAP + fade-in didn't regress it), vol slider
+  persists, filter state survives a real window reload, rescan reused all
+  210 unchanged records.
+
 ## Next move
-Batch 1 + mr-robot fixes done → John's gates: diff read + hands-on QA
-(arrows/space/esc feel, About panel, mix by ear) → John merges.
+Batch 1 + batch 2 + mr-robot fixes done → John's gates: diff read +
+hands-on QA (arrows/space/esc feel, About panel, mix by ear, vol slider,
+relaunch to confirm persisted filters/window size) → John merges.
 
 ## Vault sync
 ✅ 2026-07-11: session-log line, Daily entry, and session note
