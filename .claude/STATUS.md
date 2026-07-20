@@ -147,8 +147,34 @@ milestone, after monetization model chosen), IPC catalog transfer rework
 About box w/ CC-BY attribution + version · keyboard auditioning · scan-race fix ·
 small guards (reveal existsSync, MIDI size cap, pickLibrary try/catch).
 
+## Mr Robot pass (2026-07-20, John's trigger) — verdict: no ship-blockers
+11-agent adversarial workflow (4 hostile lenses + live Electron runtime harness
+against a real 210-file scan, every claim adversarially verified). Threat-model
+axis clean: no paid APIs, no network, no new IPC surface; lock + reveal guard
+narrow exposure vs main. Real findings, all fixed on the branch:
+- Sticky-header occlusion on ArrowUp (runtime-measured) → selectRow now
+  scrolls the row clear of the header (app.js)
+- ■ indicator lost when the table re-renders mid-playback (preexisting on
+  main, amplified by keyboard flow) → attachPlayers restores ■/playBtn for
+  the playing row (app.js)
+- About credits drifted from ATTRIBUTION.md (missing drskit.dk) → synced
+  verbatim (main.js)
+- Keyboard feature undiscoverable → hint in header sub-text + README section
+Nits accepted as-is: library:choose two-dialog TOCTOU (unreachable through
+the window-modal sheet; cache stays locked either way), single self-
+overwriting orphan .tmp on failed scan. Refuted (don't relitigate):
+MutationObserver ▶-race (microtask ordering), space-on-empty-list
+"silent failure" (correct no-op behavior).
+Re-verified after fixes: npm test green (tier 2 floors hold), all 4 runtime
+checks pass (occlusion gone — row pins at chrome bottom 168px; key-repeat
+race clean; empty-filter clean; ■ survives re-render), zero console errors.
+Note: the runtime harness itself had two bugs on first pass (wrong input id
+'search' vs 'q'; const redeclaration across executeJavaScript calls) — fixed
+in scratchpad before trusting check 3/4 results.
+
 ## Next move
-Finish batch 1 → diff read + QA → John merges.
+Batch 1 + mr-robot fixes done → John's gates: diff read + hands-on QA
+(arrows/space/esc feel, About panel, mix by ear) → John merges.
 
 ## Vault sync
 ✅ 2026-07-11: session-log line, Daily entry, and session note

@@ -68,6 +68,10 @@ curated set of 21 acoustic drum one-shots from **DRSKit 2** by the
 [assets/drskit/ATTRIBUTION.md](assets/drskit/ATTRIBUTION.md). The preview
 BPM slider sets the playback tempo regardless of each file's native tempo.
 
+Audition from the keyboard: **↑/↓** move through the list (playback follows
+while a groove is playing), **space/enter** plays or stops the selected
+groove, **esc** stops.
+
 ## Classifier accuracy
 
 The feel/kick/cymbal/toms classifier in `scanner.js` was reverse-engineered

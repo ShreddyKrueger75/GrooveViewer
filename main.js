@@ -94,7 +94,8 @@ app.setAboutPanelOptions({
   applicationVersion: app.getVersion(),
   copyright: '© 2026 Bloody Finger Music',
   credits: 'Drum preview samples: DRSKit 2 by the DrumGizmo project — ' +
-    'Lars Muldjord and Bent Bisballe Nyeng, drum kit by Jes Eiler of DRSDrums. ' +
+    'Lars Muldjord and Bent Bisballe Nyeng, with the drum kit provided by ' +
+    'Jes Eiler of DRSDrums (drskit.dk). ' +
     'Used under the Creative Commons Attribution 4.0 International license ' +
     '(creativecommons.org/licenses/by/4.0). Samples unmodified; curated subset.',
 });

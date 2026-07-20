@@ -56,6 +56,9 @@ function selectRow(i){
   selIdx=Math.max(0,Math.min(rows.length-1,i));
   rows.forEach((tr,j)=>tr.classList.toggle('sel',j===selIdx));
   rows[selIdx].scrollIntoView({block:'nearest'});
+  const hb=document.querySelector('header').getBoundingClientRect().bottom;
+  const rt=rows[selIdx].getBoundingClientRect().top;
+  if(rt<hb)window.scrollBy(0,rt-hb); // sticky header would otherwise occlude the row
 }
 $('tbl').addEventListener('click',e=>{
   const tr=e.target.closest('tr');if(!tr)return;
@@ -179,6 +182,7 @@ load();
       btn.className='cp pv';btn.textContent='▶';btn.title='preview groove';
       btn.style.marginLeft='4px';
       btn.onclick=e=>{e.stopPropagation();playing===row?stopLoop():startLoop(row,btn);};
+      if(row===playing){btn.textContent='■';btn.style.color='var(--red)';playBtn=btn;} // re-render mid-playback: restore the ■
       cp.after(btn);
       const rb=document.createElement('button');
       rb.className='cp';rb.textContent='📂';rb.title='reveal in Finder';
