@@ -1,11 +1,11 @@
 # GrooveViewer — STATUS
 
-**Updated:** 2026-07-16 (Claude session)
-**Branch:** `claude/quick-wins` (working branch; v1 merged to main @ `ed83efd`)
-**State:** UN-PARKED 2026-07-11 — John declared "getting serious," then said "finish the
-app." Full v1 roadmap built this session: shell → scanner → real preview → classifier →
-drag-to-DAW → desktop packaging. Branch is unpushed, unmerged — review/merge is next,
-not done automatically per the three-gate rule.
+**Updated:** 2026-07-21 (Claude session)
+**Branch:** `main` (v2 merged @ `634bb85`)
+**State:** SHIPPED — v1 + quick-wins (batch 1 & 2) merged and deployed to main. Ready for
+next phase. Un-parked 2026-07-11; v1 roadmap (shell → scanner → real preview → classifier →
+drag-to-DAW → desktop packaging) completed and merged. Quick-wins batch 1 & 2 (LICENSE,
+persisted state, IPC guards, incremental rescan, etc.) completed and merged 2026-07-21.
 
 ## Decisions (John, 2026-07-11)
 - **Platform: cross-platform** (not Mac-native SwiftUI — overrides the old lean in PARKED.md)
@@ -214,10 +214,31 @@ suggested") — roadmap items implemented, still on `claude/quick-wins`
   persists, filter state survives a real window reload, rescan reused all
   210 unchanged records.
 
+## v2 merged to main (2026-07-21, John's call)
+`claude/quick-wins` fast-forwarded into `main` @ `634bb85` and pushed. Batch 1 + batch 2
+quick-wins merged:
+- LICENSE (proprietary + DRSKit CC-BY attribution)
+- Persisted state (search filters + window size via localStorage + settings.json)
+- Master volume slider (0–1.5 gain, persistent, doubles as TRIM-tuning tool)
+- IPC path validation (withinLibrary guard on midi:notes/reveal/drag:start)
+- 5ms fade-in envelope (kills attack clicks on sample trigger)
+- `cat` from folder names (fill/break now detected in full path, not just filename)
+- PATH_MAP lookup optimization (O(1) row finder replacing O(n) scan)
+- Incremental rescan (skip re-parse on unchanged files via size+mtime)
+- First-run guidance text (names supported library types)
+
+Explicitly deferred (not silently dropped): Developer ID signing+notarization,
+per-library note maps (71.5%→~85% feel accuracy, deserves its own session),
+lower hat TRIMs (your ears), parallel scan reads (paced as v2).
+
+All verification passed: npm test (floors hold), npm run package (clean),
+runtime harness (7-check smoke on 210-file Groove Monkee pack, IPC guards,
+filter persistence, vol persistence, incremental reuse confirmed).
+
 ## Next move
-Batch 1 + batch 2 + mr-robot fixes done → John's gates: diff read +
-hands-on QA (arrows/space/esc feel, About panel, mix by ear, vol slider,
-relaunch to confirm persisted filters/window size) → John merges.
+Branch is merged, clean, and pushed. Ready for next phase (v2 roadmap items,
+monetization model decision, App Store prep, Developer ID cert + notarization,
+or real DAW drag testing with your hands).
 
 ## Vault sync
 ✅ 2026-07-11: session-log line, Daily entry, and session note
