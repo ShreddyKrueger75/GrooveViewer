@@ -5,6 +5,7 @@ EZdrummer/Superior, Groove Monkee, raw MIDI folders). Cross-platform
 Electron desktop app. Product #3 of Bloody Finger Music.
 
 ![GrooveViewer catalog browser](screenshot.png)
+*Your own scanned library — GrooveViewer never ships or bundles catalog data from commercial packs.*
 
 **The one non-negotiable: Scan, don't ship.** The app scans the user's own
 installed libraries. No groove MIDI or catalog data derived from commercial
@@ -22,7 +23,10 @@ SSD5 `Grooves` directory, an EZdrummer MIDI folder, or any folder of `.mid`
 files). It scans the folder and classifies each groove — tempo, time
 signature, length, feel, kick pattern, cymbal type, hit count, and toms —
 straight from the MIDI, and caches the catalog in the OS app-data dir. Use
-the **library…** button to switch folders or rescan.
+the **library…** button to switch folders or rescan — rescans are
+incremental, so unchanged files (same size + modified time) are reused
+instead of re-parsed. Your search/filter state and window size are
+remembered across launches.
 
 Drag any **file name** in the table straight into your DAW to import the
 groove.
@@ -66,7 +70,13 @@ curated set of 21 acoustic drum one-shots from **DRSKit 2** by the
 [DrumGizmo project](https://drumgizmo.org/kits/), used under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — see
 [assets/drskit/ATTRIBUTION.md](assets/drskit/ATTRIBUTION.md). The preview
-BPM slider sets the playback tempo regardless of each file's native tempo.
+BPM slider sets the playback tempo regardless of each file's native tempo;
+the **vol** slider sets preview loudness (also handy for tuning against
+your own DAW mix).
+
+Audition from the keyboard: **↑/↓** move through the list (playback follows
+while a groove is playing), **space/enter** plays or stops the selected
+groove, **esc** stops.
 
 ## Classifier accuracy
 

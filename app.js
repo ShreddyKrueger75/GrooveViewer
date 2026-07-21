@@ -1,5 +1,9 @@
 const MAX=1000;
-let DATA=[],sortK='pack',sortD=1,timer=null;
+let DATA=[],PATH_MAP=new Map(),sortK='pack',sortD=1,timer=null;
+let VIEW=[],selIdx=-1; // rows currently rendered + keyboard selection into them
+const FILTER_KEYS=['q','sF','sC','sT','sP','bN','bX'];
+function saveFilters(){try{localStorage.setItem('gv-filters',JSON.stringify(Object.fromEntries(FILTER_KEYS.map(k=>[k,$(k).value]))));}catch{}}
+function restoreFilters(){try{const s=JSON.parse(localStorage.getItem('gv-filters')||'{}');FILTER_KEYS.forEach(k=>{if(s[k]!=null)$(k).value=s[k];});}catch{}}
 const $=id=>document.getElementById(id);
 const fc=f=>f==='d-beat / gallop'?'f-d':f==='straight backbeat'?'f-b':f==='half-time'?'f-h':f==='fast one-beat'?'f-f':'f-x';
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c])}
@@ -27,7 +31,8 @@ function render(){
   let r=filt();r.sort((a,b)=>{let x=a[sortK]??'',y=b[sortK]??'';return(x>y?1:x<y?-1:0)*sortD;});
   $('cnt').textContent=r.length.toLocaleString()+' / '+DATA.length.toLocaleString()+' grooves';
   const over=r.length>MAX;$('cap').textContent=over?`Showing first ${MAX} — narrow filters to see the rest.`:'';
-  const rows=(over?r.slice(0,MAX):r).map(x=>`<tr>
+  VIEW=over?r.slice(0,MAX):r;selIdx=-1; // selection resets when the visible set changes
+  const rows=VIEW.map(x=>`<tr>
 <td>${x.feel==null?'—':`<span class="tag ${fc(x.feel)}">${esc(x.feel)}</span>`}</td>
 <td>${esc(x.cat)}</td><td>${x.bpm??'—'}</td><td>${esc(x.ts)}</td><td>${x.bars}</td>
 <td>${esc(x.time)}</td><td title="${esc(x.kick)}">${esc(x.kick)}</td>
@@ -36,7 +41,8 @@ function render(){
 <td class="dragfile" title="drag into your DAW: ${esc(x.file)}" draggable="true" data-path="${esc(x.path)}">${esc(x.file.slice(0,30))}</td>
 <td><button class="cp" data-p="${esc(x.path)}">copy path</button></td></tr>`).join('');
   $('tbl').innerHTML=rows;
-  $('tbl').querySelectorAll('.cp').forEach(b=>b.onclick=()=>{
+  $('tbl').querySelectorAll('.cp').forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); // buttons shouldn't also trigger row selection
     navigator.clipboard.writeText(b.dataset.p);b.textContent='✓ copied';setTimeout(()=>b.textContent='copy path',1200);
   });
 }
@@ -47,20 +53,39 @@ $('tbl').addEventListener('dragstart',e=>{
   const td=e.target.closest('.dragfile');if(!td)return;
   e.preventDefault();window.groove.startDrag(td.dataset.path);
 });
-['q','sF','sC','sT','sP'].forEach(id=>$(id).addEventListener('input',debounce(render,150)));
-['bN','bX'].forEach(id=>$(id).addEventListener('input',debounce(render,300)));
+function rowEls(){return $('tbl').querySelectorAll('tr');}
+function selectRow(i){
+  const rows=rowEls();if(!rows.length)return;
+  selIdx=Math.max(0,Math.min(rows.length-1,i));
+  rows.forEach((tr,j)=>tr.classList.toggle('sel',j===selIdx));
+  rows[selIdx].scrollIntoView({block:'nearest'});
+  const hb=document.querySelector('header').getBoundingClientRect().bottom;
+  const rt=rows[selIdx].getBoundingClientRect().top;
+  if(rt<hb)window.scrollBy(0,rt-hb); // sticky header would otherwise occlude the row
+}
+$('tbl').addEventListener('click',e=>{
+  const tr=e.target.closest('tr');if(!tr)return;
+  selectRow([...rowEls()].indexOf(tr));
+});
+function renderAndSave(){saveFilters();render();}
+['q','sF','sC','sT','sP'].forEach(id=>$(id).addEventListener('input',debounce(renderAndSave,150)));
+['bN','bX'].forEach(id=>$(id).addEventListener('input',debounce(renderAndSave,300)));
 window.groove.onScanProgress(m=>{$('lp').textContent=m;});
 function show(json){
   DATA=JSON.parse(json);
-  buildSelects();render();
+  PATH_MAP=new Map(DATA.map(r=>[r.path,r]));
+  buildSelects();restoreFilters();render();
   $('loader').style.display='none';$('app').style.display='block';
 }
 async function pickLibrary(){
   $('pick').hidden=true;$('lp').textContent='Choose a folder…';
   const r=await window.groove.chooseLibrary();
-  if(r.json)return show(r.json);
+  if(r.json){
+    try{return show(r.json);}
+    catch(e){$('lp').textContent='Error: '+e.message;$('pick').hidden=false;return;}
+  }
   if(r.canceled&&DATA.length){$('loader').style.display='none';$('app').style.display='block';return;}
-  $('lp').textContent=r.error||'Point GrooveViewer at your groove library to get started.';
+  $('lp').textContent=r.error||'Point GrooveViewer at your SSD5, EZdrummer/Superior, Groove Monkee, or raw MIDI folder to get started.';
   $('pick').hidden=false;
 }
 async function load(){
@@ -68,7 +93,7 @@ async function load(){
   try{
     const r=await window.groove.loadCatalog();
     if(r.json)return show(r.json);
-    $('lp').textContent='Point GrooveViewer at your groove library to get started.';
+    $('lp').textContent='Point GrooveViewer at your SSD5, EZdrummer/Superior, Groove Monkee, or raw MIDI folder to get started.';
     $('pick').hidden=false;
   }catch(e){$('lp').textContent='Error: '+e.message;}
 }
@@ -78,8 +103,12 @@ load();
 // DRSKit one-shots (CC-BY 4.0 — see assets/drskit/ATTRIBUTION.md).
 (function(){
   let actx=null,master=null,playing=null,playBtn=null,loopTimer=null,previewBpm=182,openHatSrc=null;
+  let masterVolNode=null,vol=+(localStorage.getItem('gv-vol')??1);
   const get=id=>document.getElementById(id);
-  function ctx(){if(!actx)actx=new AudioContext();if(actx.state==='suspended')actx.resume();return actx;}
+  function ctx(){
+    if(!actx){actx=new AudioContext();masterVolNode=actx.createGain();masterVolNode.gain.value=vol;masterVolNode.connect(actx.destination);}
+    if(actx.state==='suspended')actx.resume();return actx;
+  }
   const KIT={kick:3,snare:3,hatc:3,hato:2,tom1:2,tom2:2,tom3:2,crash:2,ride:2}; // name → layer count
   // ponytail: per-instrument trim knobs — tune by ear, samples are peak-normalized
   const TRIM={kick:1,snare:.9,hatc:.5,hato:.55,tom1:.85,tom2:.85,tom3:.85,crash:.6,ride:.5};
@@ -114,7 +143,9 @@ load();
     const c=ctx();
     const{buf,norm}=layers[Math.min(layers.length-1,Math.floor(vel/(128/layers.length)))];
     const src=c.createBufferSource(),g=c.createGain();
-    src.buffer=buf;g.gain.value=norm*TRIM[inst]*(0.35+0.65*vel/127);
+    src.buffer=buf;
+    const peak=norm*TRIM[inst]*(0.35+0.65*vel/127);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+0.005); // 5ms fade-in kills attack clicks
     src.connect(g);g.connect(master);src.start(t);
     if(inst==='hatc'||inst==='hato'){ // hi-hat choke: closing kills the open ring
       if(openHatSrc){try{openHatSrc.stop(t+0.03);}catch{}}
@@ -140,7 +171,7 @@ load();
       playing=null;playBtn=null;return;
     }
     const c=ctx();
-    master=c.createGain();master.connect(c.destination);
+    master=c.createGain();master.connect(masterVolNode);
     let next=c.currentTime+0.08;
     function schedPass(){
       const s=(60/previewBpm)/r.tpb; // seconds per tick at the preview tempo
@@ -156,12 +187,13 @@ load();
     document.querySelectorAll('#tbl tr').forEach(tr=>{
       if(tr.querySelector('.pv'))return;
       const cp=tr.querySelector('.cp');if(!cp)return;
-      const row=DATA.find(r=>r.path===cp.dataset.p);
+      const row=PATH_MAP.get(cp.dataset.p);
       if(!row)return;
       const btn=document.createElement('button');
       btn.className='cp pv';btn.textContent='▶';btn.title='preview groove';
       btn.style.marginLeft='4px';
       btn.onclick=e=>{e.stopPropagation();playing===row?stopLoop():startLoop(row,btn);};
+      if(row===playing){btn.textContent='■';btn.style.color='var(--red)';playBtn=btn;} // re-render mid-playback: restore the ■
       cp.after(btn);
       const rb=document.createElement('button');
       rb.className='cp';rb.textContent='📂';rb.title='reveal in Finder';
@@ -201,6 +233,17 @@ load();
       if(playing){const r=playing,b=playBtn;stopLoop();startLoop(r,b);}
     };
   }
+  function addVolumeSlider(){
+    const bar=document.querySelector('.bar');
+    const w=document.createElement('div');
+    w.style.cssText='display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11px';
+    w.innerHTML=`vol <input type="range" id="pvvol" min="0" max="1.5" step="0.05" value="${vol}" style="width:60px;accent-color:var(--acc)">`;
+    bar.appendChild(w);
+    get('pvvol').oninput=function(){
+      vol=+this.value;if(masterVolNode)masterVolNode.gain.value=vol;
+      localStorage.setItem('gv-vol',vol);
+    };
+  }
   function addLibraryBtn(){
     const bar=document.querySelector('.bar');
     const b=document.createElement('button');
@@ -212,7 +255,32 @@ load();
       pickLibrary();
     };
   }
+  // Keyboard auditioning: ↑/↓ select (and keep playing while you move),
+  // space/enter play/stop the selected groove, esc stops.
+  function playSel(){
+    const tr=rowEls()[selIdx],row=VIEW[selIdx];
+    const btn=tr&&tr.querySelector('.pv');
+    if(btn&&row)startLoop(row,btn);
+  }
+  document.addEventListener('keydown',e=>{
+    const tag=(document.activeElement||{}).tagName;
+    if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA')return;
+    if($('app').style.display!=='block')return;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      const wasPlaying=!!playing;
+      selectRow(selIdx+(e.key==='ArrowDown'?1:-1));
+      if(wasPlaying)playSel(); // auto-advance: keep auditioning as you move
+    }else if(e.key===' '||e.key==='Enter'){
+      e.preventDefault();
+      if(selIdx<0)selectRow(0);
+      if(playing&&playing===VIEW[selIdx])stopLoop();else playSel();
+    }else if(e.key==='Escape'){
+      stopLoop();
+    }
+  });
   addSlider();
+  addVolumeSlider();
   addColumns();
   addLibraryBtn();
 })();

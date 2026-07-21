@@ -1,7 +1,7 @@
 # GrooveViewer — STATUS
 
-**Updated:** 2026-07-11 (Claude session)
-**Branch:** `claude/electron-shell` (working branch; main untouched)
+**Updated:** 2026-07-16 (Claude session)
+**Branch:** `claude/quick-wins` (working branch; v1 merged to main @ `ed83efd`)
 **State:** UN-PARKED 2026-07-11 — John declared "getting serious," then said "finish the
 app." Full v1 roadmap built this session: shell → scanner → real preview → classifier →
 drag-to-DAW → desktop packaging. Branch is unpushed, unmerged — review/merge is next,
@@ -115,10 +115,109 @@ not done automatically per the three-gate rule.
 - `cat` field (fill/break/groove/etc.) still uses the simple filename heuristic from
   milestone 1.5, not reverse-engineered from note data — lowest-priority remaining gap
 
+## v1 merged to main (2026-07-16, John's call)
+`claude/electron-shell` fast-forwarded into `main` @ `ed83efd` and pushed. John's
+hands-on QA (mix by ear, real DAW drag) still outstanding — merged on his explicit
+instruction before that gate.
+
+## Improvement roadmap (multi-agent review, verified against code, 2026-07-16)
+Full findings in vault: `Projects/Groove Library/GrooveViewer — improvement roadmap`.
+Condensed, prioritized:
+1. **Before selling** — in-app About/credits w/ DRSKit CC-BY attribution (license
+   obligation, currently invisible); LICENSE file (repo has none); Developer ID
+   signing + notarization; README screenshot caption ("your own library").
+2. **Core loop UX** — keyboard auditioning (arrows + space, auto-advance while
+   playing); persist filter state + window size; master volume slider (doubles as
+   TRIM-tuning tool); first-run guidance text.
+3. **Real bugs** — concurrent-scan race (two scans clobber cache/settings);
+   IPC path validation vs library root; unmounted-volume guards (reveal silent-fails);
+   MIDI file-size guard.
+4. **Audio/classifier** — 5–10ms fade-in envelope (kills attack clicks);
+   per-library note maps (feel 71.5%→~85%, medium effort, data already in dev
+   catalog); `cat` from folder names (fill/break only); lower hat TRIMs first if
+   dense passages clip.
+5. **Perf, paced** — Map lookup in attachPlayers (real win now); incremental rescan
+   via mtime/size (when rescans annoy); parallel scan reads (v2, ~2–4x).
+Rejected on verification (don't relitigate): virtualized rendering (cap fine),
+favorites/collections (premature), auto-update + trial/licensing code (pre-ship
+milestone, after monetization model chosen), IPC catalog transfer rework
+(measured fine), "showItemInFolder is macOS-only" (false — cross-platform).
+
+## In flight: `claude/quick-wins` (batch 1)
+About box w/ CC-BY attribution + version · keyboard auditioning · scan-race fix ·
+small guards (reveal existsSync, MIDI size cap, pickLibrary try/catch).
+
+## Mr Robot pass (2026-07-20, John's trigger) — verdict: no ship-blockers
+11-agent adversarial workflow (4 hostile lenses + live Electron runtime harness
+against a real 210-file scan, every claim adversarially verified). Threat-model
+axis clean: no paid APIs, no network, no new IPC surface; lock + reveal guard
+narrow exposure vs main. Real findings, all fixed on the branch:
+- Sticky-header occlusion on ArrowUp (runtime-measured) → selectRow now
+  scrolls the row clear of the header (app.js)
+- ■ indicator lost when the table re-renders mid-playback (preexisting on
+  main, amplified by keyboard flow) → attachPlayers restores ■/playBtn for
+  the playing row (app.js)
+- About credits drifted from ATTRIBUTION.md (missing drskit.dk) → synced
+  verbatim (main.js)
+- Keyboard feature undiscoverable → hint in header sub-text + README section
+Nits accepted as-is: library:choose two-dialog TOCTOU (unreachable through
+the window-modal sheet; cache stays locked either way), single self-
+overwriting orphan .tmp on failed scan. Refuted (don't relitigate):
+MutationObserver ▶-race (microtask ordering), space-on-empty-list
+"silent failure" (correct no-op behavior).
+Re-verified after fixes: npm test green (tier 2 floors hold), all 4 runtime
+checks pass (occlusion gone — row pins at chrome bottom 168px; key-repeat
+race clean; empty-filter clean; ■ survives re-render), zero console errors.
+Note: the runtime harness itself had two bugs on first pass (wrong input id
+'search' vs 'q'; const redeclaration across executeJavaScript calls) — fixed
+in scratchpad before trusting check 3/4 results.
+
+## Quick wins batch 2 (2026-07-20, John's trigger: "make all the improvements
+suggested") — roadmap items implemented, still on `claude/quick-wins`
+- **LICENSE file** — proprietary/all-rights-reserved (matches `"private":
+  true` + no-subscriptions brand rule); `package.json` `license: UNLICENSED`;
+  README screenshot caption.
+- **Persisted state** — search/filter fields (localStorage) and window size
+  (`settings.json`, merge-safe via new `writeSettings()`) survive relaunch.
+- **Master volume slider** — persistent gain node ahead of the per-loop
+  gain, 0–1.5 range, localStorage-persisted; doubles as the TRIM-tuning
+  tool the roadmap asked for (actual per-instrument TRIM constants left
+  alone — that's still John's ear-call).
+- **IPC path validation vs library root** — `midi:notes`/`reveal`/
+  `drag:start` now reject any path outside the currently scanned
+  `libraryPath` (`withinLibrary()`, `path.relative`-based, defense-in-depth
+  against a compromised renderer).
+- **5ms fade-in envelope** on every sample trigger — kills attack clicks.
+- **`cat` from folder names** — fill/break now matched against the full
+  relative path (file + folder segments), not just the filename.
+- **Map lookup in attachPlayers** — `PATH_MAP` (path→row) replaces the
+  linear `DATA.find` scan on every re-render.
+- **Incremental rescan** — `scan()` takes a `prevByPath` map; unchanged
+  files (same size + mtimeMs) are reused instead of re-parsed;
+  `scanAndCache` loads the existing cache to build it. New `size`/
+  `mtimeMs` fields on each record (internal only, not rendered).
+- **First-run guidance** — loader text now names the supported library
+  types (SSD5, EZdrummer/Superior, Groove Monkee, raw MIDI).
+- Skipped, explicitly not silently dropped: **Developer ID signing +
+  notarization** (needs John's Apple Developer account/certs — can't do
+  without him); **per-library note maps** (feel 71.5%→~85%; this is a
+  reverse-engineering effort on the scale of the original classifier work,
+  deserves its own session, not a quick win); **lower hat TRIMs** (his
+  ears — the new vol slider is the tool now); **parallel scan reads**
+  (roadmap explicitly paced this as v2, incremental rescan covers most of
+  the practical win already).
+- Verified: `npm test` green (tier 2 floors unchanged: header 99.7%, hits
+  100%, toms 87.7%, time 91.2%, feel 71.5%); `npm run package` clean;
+  runtime harness against the real 210-file Groove Monkee freebie pack —
+  IPC path validation (in-library allowed, `/etc/passwd` blocked), preview
+  playback still fires (PATH_MAP + fade-in didn't regress it), vol slider
+  persists, filter state survives a real window reload, rescan reused all
+  210 unchanged records.
+
 ## Next move
-John reviews the diff on `claude/electron-shell` (three-gate merge: diff read ✅ by
-Claude, QA = John runs `npm start` or the packaged `.app`, picks his Grooves folder,
-judges the classifier/preview mix by ear, tries a real drag into his DAW — then merges).
+Batch 1 + batch 2 + mr-robot fixes done → John's gates: diff read +
+hands-on QA (arrows/space/esc feel, About panel, mix by ear, vol slider,
+relaunch to confirm persisted filters/window size) → John merges.
 
 ## Vault sync
 ✅ 2026-07-11: session-log line, Daily entry, and session note

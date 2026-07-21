@@ -3,6 +3,7 @@
   "productName": "GrooveViewer",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Scan, catalog, and preview your own drum-groove MIDI libraries.",
   "main": "main.js",
   "scripts": {
