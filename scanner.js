@@ -126,63 +126,94 @@ async function findMidis(root, onProgress) {
   return files;
 }
 
+// ponytail: minimal in-file worker pool for parallel file I/O without new dependencies.
+// Workers pull from a shared queue; results are stored at original index to preserve
+// ordering. Ceiling: 8 concurrent workers (tuned for typical disk bandwidth).
+async function createWorkerPool(tasks, onProgress, concurrency = 8) {
+  const results = new Array(tasks.length);
+  let nextIdx = 0;
+  const workers = [];
+
+  const worker = async () => {
+    while (nextIdx < tasks.length) {
+      const idx = nextIdx++;
+      const task = tasks[idx];
+      try {
+        results[idx] = await task();
+      } catch (e) {
+        results[idx] = { error: e };
+      }
+      await onProgress(idx + 1);
+    }
+  };
+
+  for (let i = 0; i < Math.min(concurrency, tasks.length); i++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
+  return results;
+}
+
 // prevByPath: Map<absPath, prior record> from the last scan of this same
 // root — unchanged files (same size + mtime) are reused instead of re-parsed.
 async function scan(root, onProgress = async () => {}, prevByPath = null) {
   const files = await findMidis(root, onProgress);
   const clean = (s) => s.replace(/\.(lib|sng|prt)$/i, '');
-  const out = [];
+  const out = new Array(files.length);
+
+  // Classify each file up front: reused (unchanged since last scan), oversized
+  // (skip parse, default values), or needs-parse. Stat is fast and synchronous,
+  // so do this pass sequentially; only the actual parse work below is parallel.
+  const parseNeeded = [];
   for (let i = 0; i < files.length; i++) {
     const p = files[i];
     const st = fs.statSync(p);
     const prev = prevByPath && prevByPath.get(p);
+    const rel = path.relative(root, p).split(path.sep);
+    const catSrc = rel.join(' ');
+    const base = {
+      pack: rel.length > 1 ? clean(rel[0]) : clean(path.basename(root)),
+      section: rel.slice(1, -1).map(clean).join(' / '),
+      file: rel[rel.length - 1],
+      path: p,
+      size: st.size,
+      mtimeMs: st.mtimeMs,
+      cat: /fill/i.test(catSrc) ? 'fill' : /break/i.test(catSrc) ? 'break' : 'groove',
+    };
     if (prev && prev.size === st.size && prev.mtimeMs === st.mtimeMs) {
-      out.push(prev);
+      out[i] = prev;
     } else if (st.size > MAX_MIDI_SIZE) {
-      // File is oversized; skip parsing, add with default values
-      const rel = path.relative(root, p).split(path.sep);
-      const catSrc = rel.join(' ');
-      out.push({
-        pack: rel.length > 1 ? clean(rel[0]) : clean(path.basename(root)),
-        section: rel.slice(1, -1).map(clean).join(' / '),
-        file: rel[rel.length - 1],
-        path: p,
-        size: st.size,
-        mtimeMs: st.mtimeMs,
-        cat: /fill/i.test(catSrc) ? 'fill' : /break/i.test(catSrc) ? 'break' : 'groove',
-        bpm: null,
-        ts: null,
-        bars: 1,
-        feel: null,
-        kick: '',
-        time: null,
-        hits: null,
-        toms: null,
-      });
+      out[i] = { ...base, bpm: null, ts: null, bars: 1, feel: null, kick: '', time: null, hits: null, toms: null };
     } else {
-      const rel = path.relative(root, p).split(path.sep);
-      const catSrc = rel.join(' ');
-      let info = { bpm: null, ts: null, bars: 1 };
-      let cls = { feel: null, kick: '', time: null, hits: null, toms: null };
-      try {
-        const parsed = parseFile(p);
-        info = { bpm: parsed.bpm, ts: `${parsed.num}/${parsed.den}`, bars: parsed.bars };
-        cls = classify(parsed);
-      } catch { /* unreadable MIDI — keep it listed anyway */ }
-      out.push({
-        pack: rel.length > 1 ? clean(rel[0]) : clean(path.basename(root)),
-        section: rel.slice(1, -1).map(clean).join(' / '),
-        file: rel[rel.length - 1],
-        path: p,
-        size: st.size,
-        mtimeMs: st.mtimeMs,
-        cat: /fill/i.test(catSrc) ? 'fill' : /break/i.test(catSrc) ? 'break' : 'groove',
-        ...info,
-        ...cls,
-      });
+      parseNeeded.push({ i, p, base });
     }
-    if (i % 200 === 0) await onProgress(`Analyzing… ${i.toLocaleString()} / ${files.length.toLocaleString()}`);
   }
+
+  // Parallel parse: create tasks for files that actually need re-parsing.
+  const tasks = parseNeeded.map(({ i, p, base }) => async () => {
+    let info = { bpm: null, ts: null, bars: 1 };
+    let cls = { feel: null, kick: '', time: null, hits: null, toms: null };
+    try {
+      const parsed = parseFile(p);
+      info = { bpm: parsed.bpm, ts: `${parsed.num}/${parsed.den}`, bars: parsed.bars };
+      cls = classify(parsed);
+    } catch { /* unreadable MIDI — keep it listed anyway */ }
+    out[i] = { ...base, ...info, ...cls };
+  });
+
+  // Run parse tasks in parallel, fire progress every ~200 files total.
+  if (tasks.length > 0) {
+    await createWorkerPool(tasks, async (completedCount) => {
+      const totalProcessed = (files.length - tasks.length) + completedCount;
+      if (totalProcessed % 200 === 0 || totalProcessed === files.length) {
+        await onProgress(`Analyzing… ${totalProcessed.toLocaleString()} / ${files.length.toLocaleString()}`);
+      }
+    }, 8);
+  } else {
+    // Nothing needed parsing (all reused or oversized); signal completion.
+    await onProgress(`Analyzing… ${files.length.toLocaleString()} / ${files.length.toLocaleString()}`);
+  }
+
   return out;
 }
 
