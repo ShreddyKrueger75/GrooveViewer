@@ -308,4 +308,6 @@ testing with his hands.
 ✅ 2026-07-11: session-log line, Daily entry, and session note
 (`Projects/Groove Library/Session — 2026-07-11 — GrooveViewer un-parked, Electron shell`)
 all written.
-⏳ 2026-07-26: v3 session (issues #1–#4) — vault sync pending.
+✅ 2026-07-26: v3 session (issues #1–#4) — session-log line, Daily entry, and session note
+(`Projects/Groove Library/Session — 2026-07-26 — v3 shipped via parallel Haiku subagents`)
+all written.
