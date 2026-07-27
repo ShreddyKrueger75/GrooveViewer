@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { parseMidi } = require('midi-file');
 
+const MAX_MIDI_SIZE = 10 * 1024 * 1024; // ponytail: skip parsing on oversized files; raise if users hit this
 const POS_NAMES = ['1', '1e', '1&', '1a', '2', '2e', '2&', '2a', '3', '3e', '3&', '3a', '4', '4e', '4&', '4a'];
 const KICK_NOTES = [35, 36];
 const SNARE_NOTES = [37, 38, 39, 40];
@@ -18,9 +19,6 @@ const TOM_NOTES = [41, 43, 45, 47, 48, 50, 58, 60, 61, 62, 63, 64];
 // 396/397 against the prototype catalog as ground truth (one odd-meter
 // fill disagrees).
 function parseFile(file) {
-  // real groove MIDI is a few KB; a multi-MB "MIDI" is corrupt or hostile —
-  // fail fast instead of blocking on a huge read/parse
-  if (fs.statSync(file).size > 10 * 1024 * 1024) throw new Error('MIDI file over 10 MB — skipped');
   const parsed = parseMidi(fs.readFileSync(file));
   let bpm = null, num = null, den = null, lastOn = 0;
   const notes = [];
@@ -140,6 +138,27 @@ async function scan(root, onProgress = async () => {}, prevByPath = null) {
     const prev = prevByPath && prevByPath.get(p);
     if (prev && prev.size === st.size && prev.mtimeMs === st.mtimeMs) {
       out.push(prev);
+    } else if (st.size > MAX_MIDI_SIZE) {
+      // File is oversized; skip parsing, add with default values
+      const rel = path.relative(root, p).split(path.sep);
+      const catSrc = rel.join(' ');
+      out.push({
+        pack: rel.length > 1 ? clean(rel[0]) : clean(path.basename(root)),
+        section: rel.slice(1, -1).map(clean).join(' / '),
+        file: rel[rel.length - 1],
+        path: p,
+        size: st.size,
+        mtimeMs: st.mtimeMs,
+        cat: /fill/i.test(catSrc) ? 'fill' : /break/i.test(catSrc) ? 'break' : 'groove',
+        bpm: null,
+        ts: null,
+        bars: 1,
+        feel: null,
+        kick: '',
+        time: null,
+        hits: null,
+        toms: null,
+      });
     } else {
       const rel = path.relative(root, p).split(path.sep);
       const catSrc = rel.join(' ');
@@ -167,4 +186,4 @@ async function scan(root, onProgress = async () => {}, prevByPath = null) {
   return out;
 }
 
-module.exports = { analyze, scan, readNotes, classify, parseFile };
+module.exports = { analyze, scan, readNotes, classify, parseFile, MAX_MIDI_SIZE };
