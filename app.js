@@ -198,7 +198,7 @@ load();
       const rb=document.createElement('button');
       rb.className='cp';rb.textContent='📂';rb.title='reveal in Finder';
       rb.style.marginLeft='4px';
-      rb.onclick=e=>{e.stopPropagation();window.groove.reveal(row.path);};
+      rb.onclick=async e=>{e.stopPropagation();const r=await window.groove.reveal(row.path);if(r.error){rb.textContent='✕';rb.title=r.error;setTimeout(()=>{rb.textContent='📂';rb.title='reveal in Finder';},1500);}};
       btn.after(rb);
     });
   }

@@ -91,8 +91,15 @@ ipcMain.handle('midi:notes', (_e, p) => {
   try { return readNotes(p); } catch (e) { return { error: e.message }; }
 });
 
-ipcMain.on('reveal', (_e, p) => {
-  if (withinLibrary(p) && fs.existsSync(p)) shell.showItemInFolder(p); // silent no-op if volume unmounted
+ipcMain.handle('reveal', (_e, p) => {
+  if (!withinLibrary(p)) return { error: 'Path outside the scanned library' };
+  if (!fs.existsSync(p)) return { error: 'Folder not found — library may be on an unmounted drive' };
+  try {
+    shell.showItemInFolder(p);
+    return { ok: true };
+  } catch (e) {
+    return { error: e.message };
+  }
 });
 
 // Drag-to-DAW: must be a synchronous IPC send from the renderer's own
