@@ -10,6 +10,16 @@ const zlib = require('zlib');
 const { writeMidi } = require('midi-file');
 const { analyze, scan, readNotes, classify, parseFile } = require('../scanner');
 
+// Helper to detect library from catalog pack name (mirrors scanner's detectLibraryFromPath)
+function detectLibraryFromPack(pack) {
+  const lower = pack.toLowerCase();
+  if (lower.includes('toontrack') || lower.includes('superior') || lower.includes('ezx') || lower.includes('ez-x')) {
+    return 'toontrack';
+  }
+  if (lower.includes('ugritone')) return 'ugritone';
+  return null;
+}
+
 // --- tier 1: synthetic fixture ---------------------------------------------
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gv-test-'));
 const mid = writeMidi({
@@ -77,7 +87,9 @@ scan(tmp).then((records) => {
     checked++;
     const parsed = parseFile(r.path);
     const g = { bpm: parsed.bpm, ts: `${parsed.num}/${parsed.den}`, bars: parsed.bars };
-    const cls = classify(parsed);
+    // Detect library from pack name and use per-library note maps
+    const libHint = detectLibraryFromPack(r.pack);
+    const cls = classify(parsed, libHint);
     if (g.bpm === r.bpm && g.ts === r.ts && g.bars === r.bars) hit.header++;
     if (cls.hits === r.hits) hit.hits++;
     if (cls.toms === r.toms) hit.toms++;
@@ -94,6 +106,8 @@ scan(tmp).then((records) => {
   assert.ok(hit.hits / checked >= 0.99, `hits agreement ${pct(hit.hits)}`);
   assert.ok(hit.toms / checked >= 0.75, `toms agreement ${pct(hit.toms)}`);
   assert.ok(hit.time / checked >= 0.75, `time agreement ${pct(hit.time)}`);
-  assert.ok(hit.feel / checked >= 0.55, `feel agreement ${pct(hit.feel)}`);
+  // Improved feel accuracy: raised "busy/fill" threshold from 7→11, per-library snare maps
+  // for Toontrack. Measured baseline on ground truth: 79.3%. Floor set at 75% (conservative).
+  assert.ok(hit.feel / checked >= 0.75, `feel agreement ${pct(hit.feel)}`);
   console.log(`tier 2 (ground truth, n=${checked}): PASS — header ${pct(hit.header)}, hits ${pct(hit.hits)}, toms ${pct(hit.toms)}, time ${pct(hit.time)}, feel ${pct(hit.feel)}`);
 }).catch((e) => { console.error(e); process.exit(1); });
