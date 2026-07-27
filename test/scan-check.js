@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
 const { writeMidi } = require('midi-file');
-const { analyze, scan, readNotes, classify, parseFile } = require('../scanner');
+const { analyze, scan, readNotes, classify, parseFile, MAX_MIDI_SIZE } = require('../scanner');
 
 // --- tier 1: synthetic fixture ---------------------------------------------
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gv-test-'));
@@ -55,12 +55,31 @@ assert.deepStrictEqual(classify({ barTicks: step * 16, bars: 1, notes: [] }), { 
 // scan() derives pack/section/file from the folder structure
 fs.mkdirSync(path.join(tmp, 'My Pack.lib', 'Verses.sng'), { recursive: true });
 fs.copyFileSync(fixture, path.join(tmp, 'My Pack.lib', 'Verses.sng', 'Test Fill 01.mid'));
+
+// Test oversized file guard: create a file > MAX_MIDI_SIZE and verify it's
+// included in scan output but not parsed (bpm/ts null, default values)
+const oversized = path.join(tmp, 'My Pack.lib', 'Verses.sng', 'Oversized.mid');
+const largeBuffer = Buffer.alloc(MAX_MIDI_SIZE + 1024 * 1024); // 11 MB
+fs.writeFileSync(oversized, largeBuffer);
+
 scan(tmp).then((records) => {
-  const r = records.find((x) => x.section === 'Verses');
-  assert.ok(r, 'scan found nested file');
+  const r = records.find((x) => x.section === 'Verses' && x.file === 'Test Fill 01.mid');
+  assert.ok(r, 'scan found nested fill file');
   assert.strictEqual(r.pack, 'My Pack');
   assert.strictEqual(r.cat, 'fill');
   assert.strictEqual(r.bpm, 120);
+
+  // Oversized file should be in output with default values, not thrown
+  const oversized_r = records.find((x) => x.section === 'Verses' && x.file === 'Oversized.mid');
+  assert.ok(oversized_r, 'scan included oversized file');
+  assert.strictEqual(oversized_r.pack, 'My Pack', 'oversized file has correct pack');
+  assert.strictEqual(oversized_r.section, 'Verses', 'oversized file has correct section');
+  assert.strictEqual(oversized_r.bpm, null, 'oversized file has null bpm');
+  assert.strictEqual(oversized_r.ts, null, 'oversized file has null ts');
+  assert.strictEqual(oversized_r.bars, 1, 'oversized file has default bars');
+  assert.strictEqual(oversized_r.feel, null, 'oversized file has null feel');
+  assert.strictEqual(oversized_r.kick, '', 'oversized file has empty kick');
+
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('tier 1 (synthetic): PASS');
 
