@@ -116,7 +116,7 @@ ipcMain.on('drag:start', (event, filePath) => {
 app.setAboutPanelOptions({
   applicationName: 'GrooveViewer',
   applicationVersion: app.getVersion(),
-  copyright: '© 2026 Bloody Finger Music',
+  copyright: '© 2026 Bloody Finger Software',
   credits: 'Drum preview samples: DRSKit 2 by the DrumGizmo project — ' +
     'Lars Muldjord and Bent Bisballe Nyeng, with the drum kit provided by ' +
     'Jes Eiler of DRSDrums (drskit.dk). ' +

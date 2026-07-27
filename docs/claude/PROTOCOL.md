@@ -167,6 +167,9 @@ form current; versionCode / versionName bumped.
 ## Project canonical facts
 - **Product / app name:** GrooveViewer (working name — not yet cleared for collisions).
   Product #3 of Bloody Finger Music (music-software division of Bloody Finger Software).
+  **Superseded 2026-07-26 (John):** the umbrella is flat — everything music is
+  **Bloody Finger Software / Music Division**; "Bloody Finger Music" is no longer
+  used as a brand or line name in user-facing copy.
 - **Domain(s) / bundle id:** TBD
 - **Plans / pricing / limits:** TBD — brand rule: **no subscriptions** (musician culture
   punishes them; matches BlockEdit/BlockPerform strategy)
