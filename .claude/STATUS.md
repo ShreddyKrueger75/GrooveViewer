@@ -1,11 +1,13 @@
 # GrooveViewer — STATUS
 
-**Updated:** 2026-07-21 (Claude session)
-**Branch:** `main` (v2 merged @ `634bb85`)
-**State:** SHIPPED — v1 + quick-wins (batch 1 & 2) merged and deployed to main. Ready for
-next phase. Un-parked 2026-07-11; v1 roadmap (shell → scanner → real preview → classifier →
-drag-to-DAW → desktop packaging) completed and merged. Quick-wins batch 1 & 2 (LICENSE,
-persisted state, IPC guards, incremental rescan, etc.) completed and merged 2026-07-21.
+**Updated:** 2026-07-26 (Claude session)
+**Branch:** `main` (v3 merged @ `2277662`)
+**State:** SHIPPED — v1, v2 quick-wins, and v3 (issues #1-#4: per-library note maps,
+file-size guard, unmounted-volume guard, parallel scan reads) all merged and deployed to
+main. Ready for next phase. Un-parked 2026-07-11; v1 roadmap (shell → scanner → real
+preview → classifier → drag-to-DAW → desktop packaging) completed and merged. Quick-wins
+batch 1 & 2 completed and merged 2026-07-21. v3 (four parallel Haiku subagents, hand-merged
+with review fixes) completed and merged 2026-07-26.
 
 ## Decisions (John, 2026-07-11)
 - **Platform: cross-platform** (not Mac-native SwiftUI — overrides the old lean in PARKED.md)
@@ -235,12 +237,75 @@ All verification passed: npm test (floors hold), npm run package (clean),
 runtime harness (7-check smoke on 210-file Groove Monkee pack, IPC guards,
 filter persistence, vol persistence, incremental reuse confirmed).
 
+## v3 merged to main (2026-07-26, John's call) — remaining roadmap items
+Four issues filed (#1–#4) covering the items deferred at v2, then built in
+parallel by four background Haiku subagents (isolated git worktrees), diff-
+reviewed and QA'd on the real target, and hand-merged into main one at a
+time @ `2277662`:
+
+- **#2 — MIDI file-size guard.** 10MB cap (`MAX_MIDI_SIZE` in scanner.js),
+  reusing the already-computed `fs.statSync` result instead of a second stat
+  inside `parseFile`. Oversized files are listed with default/null values,
+  never parsed. Tested: 11MB synthetic fixture, tier 1+2 unaffected.
+- **#3 — Unmounted-volume guard on reveal.** `reveal` IPC switched from
+  fire-and-forget (`ipcMain.on`/`ipcRenderer.send`) to promise-based
+  (`.handle`/`.invoke`) so main.js can return a structured error when
+  `fs.existsSync` fails. Reveal button shows `✕` + a tooltip ("Folder not
+  found — library may be on an unmounted drive") for 1.5s, then resets.
+  QA'd end-to-end on a real deleted file in a disposable scratch library
+  (never touched the real SSD5 volume) — confirmed via real DOM click,
+  not a mock.
+- **#4 — Parallel scan reads.** In-file 8-worker pool (no new dependency)
+  for the read+parse step of a cold scan; results written to
+  index-preserving array slots so file order is unchanged. Incremental
+  rescan's reuse path is untouched (still short-circuits before the
+  worker pool). Benchmarked on the real 210-file Groove Monkee pack:
+  ~4.4x faster cold scan, incremental rescan still ~1-2ms.
+- **#1 — Per-library note maps.** Feel accuracy **71.5% → 79.3%**
+  (measured, n=397 ground truth) via per-library snare note maps
+  (Toontrack/Ugritone-family kits use MIDI note 38 only, not the full
+  standard [37-40] range) plus raising the "busy/fill" threshold from 7
+  to 11 unique snare positions. **Caught and fixed a real gap during
+  review:** the agent's branch wired the library hint from
+  `detectLibraryFromPath(root)` — the single top-level scan root — but
+  the 79.3% figure was measured with per-pack detection. A real scan
+  root (e.g. the parent "Grooves" folder, this app's own documented best
+  practice for correct pack names) essentially never contains a vendor
+  name itself; the vendor name lives one level down, in the pack
+  subfolder. As originally wired this would have delivered close to none
+  of the measured gain for real users. Fixed to detect per-file (from
+  each groove's own full path) instead of once from the root — verified
+  with a synthetic root containing no vendor name and a nested pack
+  folder that does; confirmed the hint fires correctly post-fix where it
+  did not before.
+
+Two of the four branches (#1, #4) both independently modified
+`scanner.js`'s `scan()` function and were built without knowledge of each
+other or of #2's already-merged guard; naive merges would have silently
+reverted #2/#4's work. Hand-merged instead: classify files up front into
+reused/oversized/needs-parse, then only the needs-parse set runs through
+the worker pool with per-file library detection applied inside each task.
+
+Merge order: #3 → #2 → #4 (hand-resolved against #2) → #1 (hand-resolved
+against #2+#4, plus the root-vs-per-file fix above). All four re-verified
+after each merge: `npm test` tier 1+2, `npm run package`, and for #1/#4 a
+live benchmark/behavior check against the real SSD5 volume or a disposable
+scratch copy of it. GitHub issues #1–#4 auto-closed via commit message
+`Closes #N`; worktrees and merged branches cleaned up.
+
+README's classifier-accuracy numbers and `npm test`'s doc comment updated
+to reflect the new 79.3% feel figure; scanner.js comments describing the
+library-detection call site corrected to match the per-file fix.
+
 ## Next move
-Branch is merged, clean, and pushed. Ready for next phase (v2 roadmap items,
-monetization model decision, App Store prep, Developer ID cert + notarization,
-or real DAW drag testing with your hands).
+Main is clean, all four v3 issues shipped and pushed. Remaining from the
+original roadmap: Developer ID signing + notarization (needs John's Apple
+Developer account/certs), lower hat TRIM tuning (his ears — vol slider is
+the tool), monetization model decision, App Store prep, real DAW drag
+testing with his hands.
 
 ## Vault sync
 ✅ 2026-07-11: session-log line, Daily entry, and session note
 (`Projects/Groove Library/Session — 2026-07-11 — GrooveViewer un-parked, Electron shell`)
 all written.
+⏳ 2026-07-26: v3 session (issues #1–#4) — vault sync pending.

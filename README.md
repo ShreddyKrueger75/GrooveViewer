@@ -41,7 +41,7 @@ Runs the scanner self-check: a synthetic in-memory MIDI fixture and a pure
 `classify()` fixture (always), plus — when the dev ground-truth data and
 library volume are present — a 397-file sample compared against the
 prototype catalog. Measured agreement: header facts (bpm/ts/bars) 99.7%,
-hit count 100%, toms 87.7%, cymbal type 91.2%, feel 71.5%. The classifier
+hit count 100%, toms 87.7%, cymbal type 91.2%, feel 79.3%. The classifier
 floors are lower than the header-fact floors on purpose — see
 [Classifier accuracy](#classifier-accuracy) below.
 
@@ -86,9 +86,13 @@ parser was, but hit a real ceiling: MIDI note-number-to-drum-piece mapping
 isn't fully standardized across sample libraries (SSD5, EZX, and Groove
 Monkee kits each assign kick/snare/tom/cymbal to slightly different note
 numbers), so a single note-map can't classify every library with header-fact
-precision. The numbers above are the measured ceiling, not a bug to chase
-to 100% — `npm test` asserts floors at those levels so a real regression
-still fails loudly.
+precision. Feel accuracy improved from 71.5% to 79.3% via per-library note
+maps (Toontrack/Ugritone-family libraries use MIDI note 38 only for snare,
+not the full standard range) applied per-file based on each groove's own
+pack folder, plus a refined threshold for the "busy / fill" feel label. The
+numbers above are the measured ceiling, not a bug to chase to 100% —
+`npm test` asserts floors at those levels so a real regression still fails
+loudly.
 
 ## Building the app
 

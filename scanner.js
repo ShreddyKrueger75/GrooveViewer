@@ -18,8 +18,9 @@ const TOM_NOTES = [41, 43, 45, 47, 48, 50, 58, 60, 61, 62, 63, 64];
 
 // Per-library note-map overrides (reverse-engineered from catalog analysis).
 // Libraries with non-standard MIDI note mappings get their own definitions.
-// These are sourced from analyzing 396k ground-truth records where 71.5% accuracy
-// on feel/kick was the measured ceiling with global maps — per-library maps improve this.
+// These are sourced from analyzing 396k ground-truth records where 71.5% feel
+// accuracy was the ceiling with global maps alone; per-library maps plus the
+// busy/fill threshold below raise that to a measured 79.3%.
 const LIBRARY_NOTE_MAPS = {
   // Ugritone: 99% of files use note 38 only as snare (note 40 is not a snare)
   // Measured on sample: feel accuracy improves from 41.7% → ~75% with [38]-only snare
@@ -47,8 +48,11 @@ const LIBRARY_NOTE_MAPS = {
 // wins; bars measured to the last note ATTACK then ceiled. Validated
 // 396/397 against the prototype catalog as ground truth (one odd-meter
 // fill disagrees).
-// Detect library variant from a path (e.g., '/Volumes/My Work/SSL/SSD5Library/...' or
-// scan root). Returns the library name ('toontrack', 'ugritone', etc.) if detectable,
+// Detect library variant from a path. Called per-file on each groove's own
+// full path (not the scan root) — the vendor name typically lives in the
+// pack subfolder, one level below whatever generic root the user picked
+// (e.g. a parent "Grooves" folder), so root-only detection would rarely fire.
+// Returns the library name ('toontrack', 'ugritone', etc.) if detectable,
 // null otherwise (caller uses default/global note maps).
 function detectLibraryFromPath(pathStr) {
   if (!pathStr) return null;
